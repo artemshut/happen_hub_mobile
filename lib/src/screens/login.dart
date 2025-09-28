@@ -23,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
     // ⚡ On Android, clientId is auto; on iOS/Web set WEB_CLIENT_ID
-    // clientId: "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com",
+    clientId: "521400701362-a05bte3iqb85ii4mr2k6cod0e4cht8ro.apps.googleusercontent.com",
   );
 
   Future<void> _login() async {

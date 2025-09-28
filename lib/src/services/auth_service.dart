@@ -1,8 +1,10 @@
+// lib/services/auth_service.dart
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+
 import 'api_client.dart';
 import '../models/user.dart';
-import 'package:http/http.dart' as http;
 
 class AuthService {
   final ApiClient _client = ApiClient();
@@ -56,32 +58,24 @@ class AuthService {
     await prefs.remove("refresh_token");
   }
 
-  /// 🔥 Google Login
   Future<bool> googleLogin(String idToken) async {
-    final url = Uri.parse("https://happenhub.co/users/auth/google_oauth2/callback");
+    final url = Uri.parse("https://happenhub.co/users/google_mobile_login");
 
     final response = await http.post(
       url,
-      body: {"id_token": idToken},
+      headers: { "Content-Type": "application/json" },
+      body: jsonEncode({ "id_token": idToken }),
     );
 
     if (response.statusCode == 200) {
       final body = jsonDecode(response.body);
-
-      // Expect Rails to return token + refresh_token (like email login)
-      final token = body["token"] ?? body["data"]?["attributes"]?["token"];
-      final refreshToken = body["refresh_token"] ?? body["data"]?["attributes"]?["refresh_token"];
-
-      if (token != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString("token", token);
-        if (refreshToken != null) {
-          await prefs.setString("refresh_token", refreshToken);
-        }
-        return true;
-      }
+      final token = body["token"];
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("token", token);
+      return true;
+    } else {
+      print("❌ Google login failed: ${response.statusCode} ${response.body}");
+      return false;
     }
-
-    return false;
   }
 }
