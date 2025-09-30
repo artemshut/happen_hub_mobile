@@ -3,7 +3,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../models/user.dart';
 import 'login.dart';
 import '../services/auth_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -30,8 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _signOut(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('accessToken');
+    await _authService.logout(); // ✅ clear "token" & "refresh_token"
 
     if (context.mounted) {
       Navigator.of(context).pushAndRemoveUntil(
@@ -206,7 +204,10 @@ class ShareProfileScreen extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               profileUrl,
-              style: TextStyle(color: cs.primary, decoration: TextDecoration.underline),
+              style: TextStyle(
+                color: cs.primary,
+                decoration: TextDecoration.underline,
+              ),
             ),
           ],
         ),

@@ -15,6 +15,8 @@ class Event {
 
   // Extra fields
   final List<User>? participants;
+  final double? latitude;
+  final double? longitude;
   final List<Comment>? comments;
   final String? coverImageUrl;   // ✅ cover image
   final List<EventFile>? files;  // ✅ event files (tickets, etc.)
@@ -30,6 +32,8 @@ class Event {
     this.category,
     this.participants,
     this.comments,
+    this.latitude,
+    this.longitude,
     this.coverImageUrl,
     this.files,
   });
@@ -109,6 +113,12 @@ class Event {
       comments: comments,
       coverImageUrl: coverImageUrl,
       files: files,
+      latitude: json['attributes']['latitude'] != null
+          ? (json['attributes']['latitude'] as num).toDouble()
+          : null,
+      longitude: json['attributes']['longitude'] != null
+          ? (json['attributes']['longitude'] as num).toDouble()
+          : null,
     );
   }
 }

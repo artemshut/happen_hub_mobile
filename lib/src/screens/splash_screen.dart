@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import '../services/api_client.dart';
 import 'login.dart';
 import 'main_screen.dart';
 
@@ -18,7 +17,6 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeIn;
 
   final AuthService _authService = AuthService();
-  final ApiClient _apiClient = ApiClient();
 
   @override
   void initState() {
@@ -28,37 +26,26 @@ class _SplashScreenState extends State<SplashScreen>
     _controller =
         AnimationController(vsync: this, duration: const Duration(seconds: 2));
     _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
-
     _controller.forward();
 
     // ⏳ After delay, check auth
-    Future.delayed(const Duration(seconds: 3), _checkAuth);
+    Future.delayed(const Duration(seconds: 2), _checkAuth);
   }
 
   Future<void> _checkAuth() async {
-    final token = await _authService.getToken();
+    final loggedIn = await _authService.isLoggedIn();
 
     if (!mounted) return;
 
-    if (token != null) {
-      try {
-        // Call /me to validate token
-        final response = await _apiClient.get("/me");
-        if (response.statusCode == 200) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainScreen()),
-          );
-          return;
-        }
-      } catch (_) {
-        // handled inside ApiClient with logout+snackbar
-      }
+    if (loggedIn) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainScreen()),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
     }
-
-    // if no token or failed validation → go to login
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
   }
 
   @override

@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
 import '../services/auth_service.dart';
 import 'main_screen.dart';
 
@@ -22,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _authService = AuthService();
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
-    // ⚡ On Android, clientId is auto; on iOS/Web set WEB_CLIENT_ID
+    // iOS needs web client ID
     clientId: "521400701362-a05bte3iqb85ii4mr2k6cod0e4cht8ro.apps.googleusercontent.com",
   );
 
@@ -37,18 +34,14 @@ class _LoginScreenState extends State<LoginScreen> {
       _passwordController.text.trim(),
     );
 
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
 
     if (success && mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainScreen()),
       );
     } else {
-      setState(() {
-        _error = "Invalid email or password";
-      });
+      setState(() => _error = "Invalid email or password");
     }
   }
 
@@ -62,40 +55,21 @@ class _LoginScreenState extends State<LoginScreen> {
       final account = await _googleSignIn.signIn();
       if (account == null) {
         setState(() => _isLoading = false);
-        return; // user cancelled
+        return; // User cancelled
       }
 
       final auth = await account.authentication;
       final idToken = auth.idToken;
-
       if (idToken == null) throw Exception("No ID token from Google");
 
-      // 🔥 Send token to your Rails backend
-      final res = await http.post(
-        Uri.parse("https://happenhub.co/users/auth/google_oauth2/callback"),
-        body: {"id_token": idToken},
-      );
+      final success = await _authService.googleLogin(idToken);
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-
-        // save token via AuthService
-        final success = await _authService.googleLogin(idToken);
-        if (success && mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainScreen()),
-          );
-        } else {
-          setState(() => _error = "Google login failed");
-        }
-
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainScreen()),
-          );
-        }
+      if (success && mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+        );
       } else {
-        setState(() => _error = "Google login failed (${res.statusCode})");
+        setState(() => _error = "Google login failed");
       }
     } catch (e) {
       setState(() => _error = "Google login error: $e");
@@ -170,12 +144,14 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 12),
 
-              // 🔥 Google Login
+              // Google Login
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   icon: Image.network(
-                    "https://developers.google.com/identity/images/g-logo.png", height: 20,),
+                    "https://developers.google.com/identity/images/g-logo.png",
+                    height: 20,
+                  ),
                   label: const Text("Sign in with Google"),
                   onPressed: _isLoading ? null : _loginWithGoogle,
                 ),

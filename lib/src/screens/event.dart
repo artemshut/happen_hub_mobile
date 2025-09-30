@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
-import 'package:flutter_html_iframe/flutter_html_iframe.dart'; // 👈 for video/music embeds
-import 'package:flutter_linkify/flutter_linkify.dart';
+import 'package:flutter_html_iframe/flutter_html_iframe.dart'; // keep for Vimeo/Spotify embeds
 import 'package:url_launcher/url_launcher.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../models/event.dart';
 import '../repositories/event_repository.dart';
@@ -25,10 +25,18 @@ class _EventScreenState extends State<EventScreen> {
   final EventRepository _repo = EventRepository();
   late Future<Event> _eventFuture;
 
+  YoutubePlayerController? _ytController;
+
   @override
   void initState() {
     super.initState();
     _eventFuture = _repo.fetchEvent(context, widget.event.id);
+  }
+
+  @override
+  void dispose() {
+    _ytController?.dispose();
+    super.dispose();
   }
 
   String _formatDate(DateTime? dt) {
@@ -88,48 +96,40 @@ class _EventScreenState extends State<EventScreen> {
     }
   }
 
-  /// --- HTML sanitization + embeds ---
-  String sanitizeHtml(String rawHtml) {
-    String processed = rawHtml;
-
-    // 🎥 YouTube
+  /// --- Detect YouTube link and return widget ---
+  Widget _maybeRenderYouTube(String text) {
     final ytRegex = RegExp(
-        r'(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([^\s]+)');
-    processed = processed.replaceAllMapped(ytRegex, (m) {
-      final videoId = m.group(4);
-      return '''
-        <iframe width="100%" height="200"
-          src="https://www.youtube.com/embed/$videoId"
-          frameborder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen></iframe>
-      ''';
-    });
-
-    // 🎬 Vimeo
-    final vimeoRegex = RegExp(r'(https?:\/\/)?(www\.)?vimeo\.com\/(\d+)');
-    processed = processed.replaceAllMapped(vimeoRegex, (m) {
-      final id = m.group(3);
-      return '''
-        <iframe src="https://player.vimeo.com/video/$id"
-          width="100%" height="200" frameborder="0"
-          allow="autoplay; fullscreen; picture-in-picture" allowfullscreen>
-        </iframe>
-      ''';
-    });
-
-    // 🎵 Spotify
-    final spotifyRegex = RegExp(r'(https?:\/\/open\.spotify\.com\/[^\s]+)');
-    processed = processed.replaceAllMapped(spotifyRegex, (m) {
-      final link = m.group(1)!;
-      final embed = link.replaceFirst("open.spotify.com", "open.spotify.com/embed");
-      return '''
-        <iframe src="$embed" width="100%" height="152" frameborder="0"
-          allowtransparency="true" allow="encrypted-media"></iframe>
-      ''';
-    });
-
-    return processed;
+        r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})');
+    final match = ytRegex.firstMatch(text);
+    if (match != null) {
+      final videoId = match.group(1)!;
+      _ytController = YoutubePlayerController(
+        initialVideoId: videoId,
+        flags: const YoutubePlayerFlags(
+          autoPlay: false,
+          mute: false,
+        ),
+      );
+      return YoutubePlayer(
+        controller: _ytController!,
+        showVideoProgressIndicator: true,
+      );
+    }
+    return Html(
+      data: text,
+      style: {
+        "body": Style(
+          fontSize: FontSize(16),
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      },
+      extensions: const [
+        IframeHtmlExtension(), // keep Vimeo / Spotify working
+      ],
+      onLinkTap: (url, _, __) {
+        if (url != null) _openLink(url);
+      },
+    );
   }
 
   @override
@@ -152,6 +152,12 @@ class _EventScreenState extends State<EventScreen> {
           }
 
           final e = snapshot.data!;
+
+          // Participants
+          final participants = e.participants ?? [];
+          final displayParticipants = participants.take(5).toList();
+          final remainingCount =
+              participants.length > 5 ? participants.length - 5 : 0;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -206,24 +212,68 @@ class _EventScreenState extends State<EventScreen> {
                   ),
                 const SizedBox(height: 16),
 
-                // ✅ Description with embeds
-                Html(
-                  data: sanitizeHtml(e.description),
-                  style: {
-                    "body": Style(
-                      fontSize: FontSize(16),
-                      color: cs.onSurface,
-                    ),
-                  },
-                  extensions: const [
-                    IframeHtmlExtension(), // 🎥 Support YouTube/Vimeo/Spotify
-                  ],
-                  onLinkTap: (url, _, __) {
-                    if (url != null) _openLink(url);
-                  },
-                ),
+                // ✅ Description with embeds (YouTube handled natively)
+                _maybeRenderYouTube(e.description),
 
                 const SizedBox(height: 24),
+
+                // ✅ Participants
+                if (participants.isNotEmpty) ...[
+                  Text(
+                    "Participants",
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: cs.secondary,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 48,
+                    child: Stack(
+                      children: [
+                        for (int i = 0; i < displayParticipants.length; i++)
+                          Positioned(
+                            left: i * 32.0,
+                            child: CircleAvatar(
+                              radius: 24,
+                              backgroundImage:
+                                  displayParticipants[i].avatarUrl != null
+                                      ? NetworkImage(
+                                          displayParticipants[i].avatarUrl!)
+                                      : null,
+                              backgroundColor: Colors.grey.shade300,
+                              child: displayParticipants[i].avatarUrl == null
+                                  ? Text(
+                                      (displayParticipants[i].username ??
+                                              displayParticipants[i].email ??
+                                              "?")[0]
+                                          .toUpperCase(),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        if (remainingCount > 0)
+                          Positioned(
+                            left: displayParticipants.length * 32.0,
+                            child: CircleAvatar(
+                              radius: 24,
+                              backgroundColor: cs.primary,
+                              child: Text(
+                                "+$remainingCount",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
 
                 // ✅ Files section
                 if (e.files != null && e.files!.isNotEmpty) ...[

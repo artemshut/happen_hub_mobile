@@ -19,11 +19,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  Map<DateTime, List<Event>> _groupedEvents = {};
 
   @override
   void initState() {
     super.initState();
     _eventsFuture = _repo.fetchEvents(context);
+  }
+
+  Map<DateTime, List<Event>> _groupEventsByDay(List<Event> events) {
+    final Map<DateTime, List<Event>> data = {};
+    for (var e in events) {
+      final day =
+          DateTime.utc(e.startTime.year, e.startTime.month, e.startTime.day);
+      if (data[day] == null) {
+        data[day] = [];
+      }
+      data[day]!.add(e);
+    }
+    return data;
+  }
+
+  List<Event> _getEventsForDay(DateTime day) {
+    final d = DateTime.utc(day.year, day.month, day.day);
+    return _groupedEvents[d] ?? [];
   }
 
   @override
@@ -82,63 +101,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // 📅 Calendar
+          // 📅 Calendar + Events + Upcoming/Past
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: TableCalendar(
-                    firstDay: DateTime.utc(2020, 1, 1),
-                    lastDay: DateTime.utc(2030, 12, 31),
-                    focusedDay: _focusedDay,
-                    selectedDayPredicate: (day) {
-                      return isSameDay(_selectedDay, day);
-                    },
-                    onDaySelected: (selectedDay, focusedDay) {
-                      setState(() {
-                        _selectedDay = selectedDay;
-                        _focusedDay = focusedDay;
-                      });
-                    },
-                    headerStyle: HeaderStyle(
-                      formatButtonVisible: false,
-                      titleCentered: true,
-                      titleTextStyle: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: cs.primary,
-                      ),
-                    ),
-                    daysOfWeekStyle: DaysOfWeekStyle(
-                      weekdayStyle: TextStyle(color: cs.onSurfaceVariant),
-                      weekendStyle: TextStyle(color: cs.secondary),
-                    ),
-                    calendarStyle: CalendarStyle(
-                      todayDecoration: BoxDecoration(
-                        color: cs.primary.withOpacity(0.3),
-                        shape: BoxShape.circle,
-                      ),
-                      selectedDecoration: BoxDecoration(
-                        color: cs.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      weekendTextStyle: TextStyle(color: cs.secondary),
-                      outsideDaysVisible: false,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // 🎉 Events (API-driven)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: FutureBuilder<List<Event>>(
                 future: _eventsFuture,
                 builder: (context, snapshot) {
@@ -151,16 +117,132 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   }
 
                   final events = snapshot.data!;
+                  _groupedEvents = _groupEventsByDay(events);
+
                   final now = DateTime.now();
                   final upcoming =
                       events.where((e) => e.startTime.isAfter(now)).toList();
                   final past =
                       events.where((e) => e.startTime.isBefore(now)).toList();
 
+                  final selectedEvents = _selectedDay != null
+                      ? _getEventsForDay(_selectedDay!)
+                      : [];
+
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Upcoming carousel
+                      // Calendar with dots
+                      Card(
+                        margin: const EdgeInsets.only(bottom: 24), // 👈 extra space below calendar
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: TableCalendar(
+                            firstDay: DateTime.utc(2020, 1, 1),
+                            lastDay: DateTime.utc(2030, 12, 31),
+                            focusedDay: _focusedDay,
+                            selectedDayPredicate: (day) =>
+                                isSameDay(_selectedDay, day),
+                            onDaySelected: (selectedDay, focusedDay) {
+                              setState(() {
+                                _selectedDay = selectedDay;
+                                _focusedDay = focusedDay;
+                              });
+                            },
+                            eventLoader: _getEventsForDay,
+                            headerStyle: HeaderStyle(
+                              formatButtonVisible: false,
+                              titleCentered: true,
+                              titleTextStyle: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: cs.primary,
+                              ),
+                            ),
+                            calendarBuilders: CalendarBuilders(
+                              markerBuilder: (context, date, events) {
+                                if (events.isNotEmpty) {
+                                  return Positioned(
+                                    bottom: 1,
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: List.generate(events.length,
+                                          (i) {
+                                        return Container(
+                                          margin: const EdgeInsets.symmetric(
+                                              horizontal: 1.5),
+                                          width: 6,
+                                          height: 6,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: cs.primary,
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                  );
+                                }
+                                return null;
+                              },
+                            ),
+                            calendarStyle: CalendarStyle(
+                              todayDecoration: BoxDecoration(
+                                color: cs.primary.withOpacity(0.3),
+                                shape: BoxShape.circle,
+                              ),
+                              selectedDecoration: BoxDecoration(
+                                color: cs.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              weekendTextStyle:
+                                  TextStyle(color: cs.secondary),
+                              outsideDaysVisible: false,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Daily events for selected day
+                      if (selectedEvents.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          "Events on this day",
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Column(
+                          children: selectedEvents.map((e) {
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListTile(
+                                leading: const Icon(Icons.event),
+                                title: Text(e.title),
+                                subtitle: Text(
+                                    "${e.startTime.hour.toString().padLeft(2, '0')}:${e.startTime.minute.toString().padLeft(2, '0')}"),
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => EventScreen(event: e),
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // Upcoming events carousel
                       if (upcoming.isNotEmpty) ...[
                         Text(
                           "Upcoming Events",
@@ -251,7 +333,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               const SizedBox(height: 6),
                                               Text(
                                                 "${e.startTime.day}/${e.startTime.month}/${e.startTime.year}",
-                                                style: TextStyle(
+                                                style: const TextStyle(
                                                   color: Colors.white70,
                                                 ),
                                               ),

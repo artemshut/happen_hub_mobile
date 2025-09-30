@@ -26,7 +26,7 @@ class HappenHubApp extends StatelessWidget {
         ),
       ),
       debugShowCheckedModeBanner: false,
-      home: const SplashScreen(),
+      home: const SplashScreen(), // 👈 SplashScreen will handle auto-login
     );
   }
 }

@@ -59,6 +59,8 @@ class EventRepository {
   required DateTime startTime,
   DateTime? endTime,
   String? location,
+  double? latitude,
+  double? longitude,
   File? coverImage,
   List<File>? files,
   }) async {

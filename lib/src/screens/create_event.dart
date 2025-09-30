@@ -2,6 +2,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
+import 'package:google_places_flutter/model/prediction.dart';
+
 import '../repositories/event_repository.dart';
 import '../models/event.dart';
 
@@ -26,6 +29,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   final ImagePicker _picker = ImagePicker();
 
+  // 🗺️ Selected place details
+  String? _selectedAddress;
+  double? _lat;
+  double? _lng;
+
   Future<void> _pickCoverImage() async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
@@ -34,7 +42,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   Future<void> _pickFiles() async {
-    final picked = await _picker.pickMultiImage(); // Images only
+    final picked = await _picker.pickMultiImage();
     if (picked.isNotEmpty) {
       setState(() {
         _files = picked.map((x) => File(x.path)).toList();
@@ -80,7 +88,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         description: _descController.text,
         startTime: _startTime!,
         endTime: _endTime,
-        location: _locationController.text,
+        location: _selectedAddress ?? _locationController.text,
+        latitude: _lat,
+        longitude: _lng,
         coverImage: _coverImage,
         files: _files,
       );
@@ -134,13 +144,29 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Location
-            TextField(
-              controller: _locationController,
-              decoration: const InputDecoration(
+            // Location autocomplete
+            GooglePlaceAutoCompleteTextField(
+              textEditingController: _locationController,
+              googleAPIKey: "AIzaSyA4pJ04bRL2eFNw6nfSSw743luhjwahMEU",
+              inputDecoration: const InputDecoration(
                 labelText: "Location",
                 border: OutlineInputBorder(),
               ),
+              debounceTime: 600,
+              isLatLngRequired: true,
+              getPlaceDetailWithLatLng: (Prediction prediction) {
+                setState(() {
+                  _selectedAddress = prediction.description;
+                  _lat = double.tryParse(prediction.lat ?? "");
+                  _lng = double.tryParse(prediction.lng ?? "");
+                });
+              },
+              itemClick: (Prediction prediction) {
+                _locationController.text = prediction.description ?? "";
+                _locationController.selection = TextSelection.fromPosition(
+                  TextPosition(offset: prediction.description?.length ?? 0),
+                );
+              },
             ),
             const SizedBox(height: 16),
 
