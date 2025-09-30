@@ -1,8 +1,11 @@
 // lib/screens/dashboard.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
+
 import '../models/event.dart';
 import '../repositories/event_repository.dart';
+import '../providers/user_provider.dart';
 import 'create_event.dart';
 import 'event.dart';
 
@@ -32,9 +35,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     for (var e in events) {
       final day =
           DateTime.utc(e.startTime.year, e.startTime.month, e.startTime.day);
-      if (data[day] == null) {
-        data[day] = [];
-      }
+      data.putIfAbsent(day, () => []);
       data[day]!.add(e);
     }
     return data;
@@ -48,6 +49,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final currentUser = Provider.of<UserProvider>(context).user;
+    final currentUserId = currentUser?.id ?? "";
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -134,7 +137,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       // Calendar with dots
                       Card(
-                        margin: const EdgeInsets.only(bottom: 24), // 👈 extra space below calendar
+                        margin: const EdgeInsets.only(bottom: 24),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -231,7 +234,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (_) => EventScreen(event: e),
+                                      builder: (_) => EventScreen(
+                                        event: e,
+                                        currentUserId: currentUserId,
+                                      ),
                                     ),
                                   );
                                 },
@@ -266,7 +272,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (_) => EventScreen(event: e),
+                                      builder: (_) => EventScreen(
+                                        event: e,
+                                        currentUserId: currentUserId,
+                                      ),
                                     ),
                                   );
                                 },
@@ -384,7 +393,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                        builder: (_) => EventScreen(event: e)),
+                                      builder: (_) => EventScreen(
+                                        event: e,
+                                        currentUserId: currentUserId,
+                                      ),
+                                    ),
                                   );
                                 },
                               ),

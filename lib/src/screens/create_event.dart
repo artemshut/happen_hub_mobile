@@ -1,4 +1,3 @@
-// lib/screens/create_event.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +6,7 @@ import 'package:google_places_flutter/model/prediction.dart';
 
 import '../repositories/event_repository.dart';
 import '../models/event.dart';
+import '../services/secrets.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key});
@@ -26,6 +26,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   List<File> _files = [];
 
   bool _loading = false;
+  bool _loadingKey = true;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -33,6 +34,22 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   String? _selectedAddress;
   double? _lat;
   double? _lng;
+
+  String? _googleApiKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSecrets();
+  }
+
+  Future<void> _loadSecrets() async {
+    final key = await SecretsService.getGoogleApiKey();
+    setState(() {
+      _googleApiKey = key;
+      _loadingKey = false;
+    });
+  }
 
   Future<void> _pickCoverImage() async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
@@ -116,6 +133,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
+    if (_loadingKey) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text("Create Event")),
       body: SingleChildScrollView(
@@ -144,10 +167,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Location autocomplete
+            // ✅ Location autocomplete
             GooglePlaceAutoCompleteTextField(
               textEditingController: _locationController,
-              googleAPIKey: "AIzaSyA4pJ04bRL2eFNw6nfSSw743luhjwahMEU",
+              googleAPIKey: _googleApiKey!,
               inputDecoration: const InputDecoration(
                 labelText: "Location",
                 border: OutlineInputBorder(),

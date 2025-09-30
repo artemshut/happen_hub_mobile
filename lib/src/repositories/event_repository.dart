@@ -42,11 +42,13 @@ class EventRepository {
     }
   }
 
-  Future<void> updateRsvp(BuildContext context, String eventId, String status) async {
+  Future<void> updateRsvp(
+      BuildContext context, String eventId, String status) async {
     final token = await _authService.getToken();
     if (token == null) throw Exception("No token found. Please log in.");
 
-    final res = await _client.post("/events/$eventId/rsvp", {"status": status}, token: token);
+    final res = await _client.post("/events/$eventId/rsvp", {"status": status},
+        token: token);
     if (res.statusCode != 200) {
       throw Exception("RSVP failed (${res.statusCode})");
     }
@@ -54,15 +56,15 @@ class EventRepository {
 
   /// ✅ Create new event
   Future<Event> createEvent({
-  required String title,
-  required String description,
-  required DateTime startTime,
-  DateTime? endTime,
-  String? location,
-  double? latitude,
-  double? longitude,
-  File? coverImage,
-  List<File>? files,
+    required String title,
+    required String description,
+    required DateTime startTime,
+    DateTime? endTime,
+    String? location,
+    double? latitude,
+    double? longitude,
+    File? coverImage,
+    List<File>? files,
   }) async {
     final token = await _authService.getToken();
     if (token == null) throw Exception("No token found. Please log in.");
@@ -77,22 +79,25 @@ class EventRepository {
     request.fields['event[title]'] = title;
     request.fields['event[description]'] = description;
     request.fields['event[start_time]'] = startTime.toIso8601String();
-    if (endTime != null) request.fields['event[end_time]'] = endTime.toIso8601String();
+    if (endTime != null) {
+      request.fields['event[end_time]'] = endTime.toIso8601String();
+    }
     if (location != null) request.fields['event[location]'] = location;
 
     // Cover image
     if (coverImage != null) {
-      request.files.add(await http.MultipartFile.fromPath("event[cover_image]", coverImage.path));
+      request.files.add(await http.MultipartFile.fromPath(
+          "event[cover_image]", coverImage.path));
     }
 
     // Additional files
     if (files != null) {
       for (final f in files) {
-        request.files.add(await http.MultipartFile.fromPath("event[files][]", f.path));
+        request.files.add(await http.MultipartFile.fromPath(
+            "event[files][]", f.path));
       }
     }
 
-    // Send
     final res = await request.send();
     final body = await res.stream.bytesToString();
 
@@ -101,6 +106,70 @@ class EventRepository {
     } else {
       print("❌ Create event failed: ${res.statusCode} → $body");
       throw Exception("Failed to create event");
+    }
+  }
+
+  /// ✅ Update event (with file removal + new uploads)
+  Future<Event> updateEvent({
+    required String eventId,
+    required String title,
+    required String description,
+    required DateTime startTime,
+    DateTime? endTime,
+    String? location,
+    double? latitude,
+    double? longitude,
+    File? coverImage,
+    List<File>? files,
+    List<String>? removedFiles, // signed_id from BE
+  }) async {
+    final token = await _authService.getToken();
+    if (token == null) throw Exception("No token found. Please log in.");
+
+    final uri = Uri.parse("${_client.baseUrl}/events/$eventId");
+    final request = http.MultipartRequest("PUT", uri);
+
+    // Auth
+    request.headers['Authorization'] = "Bearer $token";
+
+    // Fields
+    request.fields['event[title]'] = title;
+    request.fields['event[description]'] = description;
+    request.fields['event[start_time]'] = startTime.toIso8601String();
+    if (endTime != null) {
+      request.fields['event[end_time]'] = endTime.toIso8601String();
+    }
+    if (location != null) request.fields['event[location]'] = location;
+
+    // Cover image (optional new one)
+    if (coverImage != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+          "event[cover_image]", coverImage.path));
+    }
+
+    // Additional new files
+    if (files != null) {
+      for (final f in files) {
+        request.files.add(await http.MultipartFile.fromPath(
+            "event[files][]", f.path));
+      }
+    }
+
+    // Removed files (signed_ids)
+    if (removedFiles != null && removedFiles.isNotEmpty) {
+      for (final id in removedFiles) {
+        request.fields['event[removed_files][]'] = id;
+      }
+    }
+
+    final res = await request.send();
+    final body = await res.stream.bytesToString();
+
+    if (res.statusCode == 200) {
+      return JsonApiParser.parseEvent(body);
+    } else {
+      print("❌ Update event failed: ${res.statusCode} → $body");
+      throw Exception("Failed to update event");
     }
   }
 }

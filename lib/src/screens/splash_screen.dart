@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../services/auth_service.dart';
+import '../providers/user_provider.dart';
+import '../models/user.dart';
 import 'login.dart';
 import 'main_screen.dart';
 
@@ -38,14 +42,22 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     if (loggedIn) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-      );
-    } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
+      // ✅ Fetch current user and set in provider
+      final user = await _authService.getCurrentUser();
+      if (user != null) {
+        Provider.of<UserProvider>(context, listen: false).setUser(user);
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+        );
+        return;
+      }
     }
+
+    // Not logged in → go to login
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 
   @override

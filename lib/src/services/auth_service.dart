@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'api_client.dart';
 import '../models/user.dart';
+import '../providers/user_provider.dart';
 
 class AuthService {
   final ApiClient _client = ApiClient();
@@ -18,7 +21,7 @@ class AuthService {
   }
 
   /// --- Email/Password login ---
-  Future<bool> login(String email, String password) async {
+  Future<bool> login(String email, String password, BuildContext context) async {
     final res = await _client.post("/sessions", {
       "email": email,
       "password": password,
@@ -31,6 +34,12 @@ class AuthService {
 
       if (token != null) {
         await _saveTokens(token, refreshToken: refreshToken);
+
+        // Fetch and set current user
+        final user = await getCurrentUser();
+        if (user != null) {
+          Provider.of<UserProvider>(context, listen: false).setUser(user);
+        }
         return true;
       }
     }
@@ -38,7 +47,7 @@ class AuthService {
   }
 
   /// --- Google login with ID token ---
-  Future<bool> googleLogin(String idToken) async {
+  Future<bool> googleLogin(String idToken, BuildContext context) async {
     final url = Uri.parse("https://happenhub.co/users/google_mobile_login");
 
     final res = await http.post(
@@ -50,10 +59,16 @@ class AuthService {
     if (res.statusCode == 200) {
       final body = jsonDecode(res.body);
       final token = body["token"];
-      final refreshToken = body["refresh_token"]; // if provided by BE
+      final refreshToken = body["refresh_token"];
 
       if (token != null) {
         await _saveTokens(token, refreshToken: refreshToken);
+
+        // Fetch and set current user
+        final user = await getCurrentUser();
+        if (user != null) {
+          Provider.of<UserProvider>(context, listen: false).setUser(user);
+        }
         return true;
       }
     } else {
@@ -72,7 +87,7 @@ class AuthService {
       final body = jsonDecode(res.body);
       return User.fromJson(body['data']);
     } else if (res.statusCode == 401) {
-      // Token expired → logout
+      // Token expired → clear tokens (no context here)
       await logout();
     }
     return null;
@@ -94,10 +109,14 @@ class AuthService {
     return token != null;
   }
 
-  /// --- Logout ---
-  Future<void> logout() async {
+  /// --- Logout (context optional) ---
+  Future<void> logout([BuildContext? context]) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("token");
     await prefs.remove("refresh_token");
+
+    if (context != null) {
+      Provider.of<UserProvider>(context, listen: false).clearUser();
+    }
   }
 }

@@ -1,7 +1,10 @@
 // lib/screens/events_list.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../repositories/event_repository.dart';
 import '../models/event.dart';
+import '../providers/user_provider.dart';
 import 'event.dart'; // EventScreen
 import 'create_event.dart'; // CreateEventScreen
 
@@ -25,6 +28,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final currentUser = Provider.of<UserProvider>(context).user;
+    final currentUserId = currentUser?.id ?? "";
 
     return Scaffold(
       appBar: AppBar(
@@ -78,7 +83,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
                         ),
                   ),
                 ),
-                ...upcoming.map((e) => _buildEventCard(e, cs, showRsvp: true)),
+                ...upcoming.map(
+                    (e) => _buildEventCard(e, cs, currentUserId, showRsvp: true)),
               ],
               if (past.isNotEmpty) ...[
                 Padding(
@@ -91,7 +97,7 @@ class _EventsListScreenState extends State<EventsListScreen> {
                         ),
                   ),
                 ),
-                ...past.map((e) => _buildEventCard(e, cs)),
+                ...past.map((e) => _buildEventCard(e, cs, currentUserId)),
               ],
             ],
           );
@@ -100,7 +106,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
     );
   }
 
-  Widget _buildEventCard(Event e, ColorScheme cs, {bool showRsvp = false}) {
+  Widget _buildEventCard(Event e, ColorScheme cs, String currentUserId,
+      {bool showRsvp = false}) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       shape: RoundedRectangleBorder(
@@ -146,17 +153,6 @@ class _EventsListScreenState extends State<EventsListScreen> {
               "${e.startTime.day}/${e.startTime.month}/${e.startTime.year} • ${e.location ?? 'No location'}",
               style: TextStyle(color: cs.onSurfaceVariant),
             ),
-            // if (showRsvp && e.rsvpStatus != null) // 👈 show RSVP if available
-            //   Padding(
-            //     padding: const EdgeInsets.only(top: 4),
-            //     child: Text(
-            //       "RSVP: ${e.rsvpStatus}", // e.g. going / maybe / not going
-            //       style: TextStyle(
-            //         fontWeight: FontWeight.w500,
-            //         color: cs.primary,
-            //       ),
-            //     ),
-            //   ),
           ],
         ),
         trailing: const Icon(Icons.chevron_right),
@@ -164,7 +160,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => EventScreen(event: e),
+              builder: (_) =>
+                  EventScreen(event: e, currentUserId: currentUserId),
             ),
           );
         },

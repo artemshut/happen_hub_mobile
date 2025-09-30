@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart';
 
 class ApiClient {
   final String baseUrl = "https://happenhub.co/api/v1";
@@ -25,6 +24,16 @@ class ApiClient {
   Future<http.Response> put(String path, Map<String, dynamic> body,
       {String? token}) async {
     return http.put(
+      Uri.parse('$baseUrl$path'),
+      headers: await _headers(token),
+      body: jsonEncode(body),
+    );
+  }
+
+  /// ✅ New PATCH method
+  Future<http.Response> patch(String path, Map<String, dynamic> body,
+      {String? token}) async {
+    return http.patch(
       Uri.parse('$baseUrl$path'),
       headers: await _headers(token),
       body: jsonEncode(body),

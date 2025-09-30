@@ -18,15 +18,19 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
-    final attrs = json['attributes'] ?? json;
+    final attrs = (json['attributes'] ?? json) as Map<String, dynamic>;
     return User(
-      id: json['id']?.toString() ?? '',
-      email: attrs['email'] ?? '',
-      firstName: attrs['first_name'],
-      lastName: attrs['last_name'],
-      username: attrs['username'],
-      tag: attrs['tag'],
-      avatarUrl: attrs['avatar_url'],
+      id: (json['id'] ?? attrs['id'] ?? '').toString(),
+      email: (attrs['email'] ?? '').toString(),
+      firstName: attrs['first_name']?.toString(),
+      lastName: attrs['last_name']?.toString(),
+      username: attrs['username']?.toString(),
+      tag: attrs['tag']?.toString(),
+      avatarUrl: attrs['avatar_url']?.toString(),
     );
   }
+
+  @override
+  String toString() =>
+      'User(id:$id, email:$email, username:$username, avatarUrl:$avatarUrl)';
 }
