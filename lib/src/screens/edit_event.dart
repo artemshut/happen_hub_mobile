@@ -37,7 +37,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
   DateTime? _endTime;
   File? _newCoverImage;
   List<File> _newFiles = [];
-  List<String> _removedFiles = [];
+  List<String> _removedFiles = []; // will store signed_ids
 
   // Google API
   String? _googleApiKey;
@@ -146,7 +146,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
         longitude: _lng,
         coverImage: _newCoverImage,
         files: _newFiles.isNotEmpty ? _newFiles : null,
-        removedFiles: _removedFiles,
+        removedFiles: _removedFiles, // ✅ send signed_ids, not URLs
       );
 
       if (!mounted) return;
@@ -315,12 +315,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
                 children: [
                   if (widget.event.files != null)
                     ...widget.event.files!
-                        .where((f) => !_removedFiles.contains(f.url))
+                        .where((f) => !_removedFiles.contains(f.signedId)) // use signedId
                         .map(
                           (f) => Chip(
                             label: Text(f.filename),
                             onDeleted: () => setState(() {
-                              _removedFiles.add(f.url);
+                              _removedFiles.add(f.signedId); // ✅ push signedId
                             }),
                           ),
                         ),

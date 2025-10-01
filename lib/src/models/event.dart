@@ -118,14 +118,14 @@ class EventFile {
   final String filename;
   final String contentType;
   final String mimeType;
-  final String? signedId; // ✅ new field
+  final String signedId;
 
   EventFile({
     required this.url,
     required this.filename,
     required this.contentType,
     required this.mimeType,
-    this.signedId,
+    required this.signedId,
   });
 
   factory EventFile.fromJson(Map<String, dynamic> json) {
@@ -134,7 +134,7 @@ class EventFile {
       url: (json['url'] ?? '').toString(),
       filename: (json['filename'] ?? '').toString(),
       contentType: (json['content_type'] ?? '').toString(),
-      signedId: json['signed_id']?.toString(), // ✅ parse signed_id
+      signedId: json['signed_id'].toString(),
     );
   }
 
