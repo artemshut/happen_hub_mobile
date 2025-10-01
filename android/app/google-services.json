@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "359241126871",
+    "project_id": "happenhub-3edba",
+    "storage_bucket": "happenhub-3edba.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:359241126871:android:bcc726b62eed5962383192",
+        "android_client_info": {
+          "package_name": "com.example.happen_hub_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5q2HDe-exLHhdfishrswDgJrXHABqMJc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

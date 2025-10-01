@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'api_client.dart';
 import '../models/user.dart';
@@ -40,13 +42,18 @@ class AuthService {
         if (user != null) {
           Provider.of<UserProvider>(context, listen: false).setUser(user);
         }
+
+        // 🚀 also send FCM token with platform
+        await sendFcmTokenToBackend();
+        _listenForFcmTokenRefresh();
+
         return true;
       }
     }
     return false;
   }
 
-  /// --- Google login with ID token ---
+  /// --- Google login ---
   Future<bool> googleLogin(String idToken, BuildContext context) async {
     final url = Uri.parse("https://happenhub.co/users/google_mobile_login");
 
@@ -64,17 +71,55 @@ class AuthService {
       if (token != null) {
         await _saveTokens(token, refreshToken: refreshToken);
 
-        // Fetch and set current user
         final user = await getCurrentUser();
         if (user != null) {
           Provider.of<UserProvider>(context, listen: false).setUser(user);
         }
+
+        // 🚀 also send FCM token with platform
+        await sendFcmTokenToBackend();
+        _listenForFcmTokenRefresh();
+
         return true;
       }
     } else {
       print("❌ Google login failed: ${res.statusCode} - ${res.body}");
     }
     return false;
+  }
+
+  /// --- Send FCM token to backend ---
+  Future<void> sendFcmTokenToBackend() async {
+    final authToken = await getToken();
+    if (authToken == null) return;
+
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    if (fcmToken == null) return;
+
+    final platform = Platform.isIOS ? "ios" : "android";
+
+    final res = await _client.post(
+      "/users/fcm_token",
+      {
+        "fcm_token": fcmToken,
+        "platform": platform,
+      },
+      token: authToken,
+    );
+
+    if (res.statusCode == 200) {
+      print("✅ FCM token synced to backend ($platform)");
+    } else {
+      print("❌ Failed to sync FCM token: ${res.statusCode} ${res.body}");
+    }
+  }
+
+  /// --- Listen for token refresh ---
+  void _listenForFcmTokenRefresh() {
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      print("🔄 New FCM token: $newToken");
+      await sendFcmTokenToBackend();
+    });
   }
 
   /// --- Get current user ---
@@ -87,7 +132,6 @@ class AuthService {
       final body = jsonDecode(res.body);
       return User.fromJson(body['data']);
     } else if (res.statusCode == 401) {
-      // Token expired → clear tokens (no context here)
       await logout();
     }
     return null;
@@ -109,7 +153,6 @@ class AuthService {
     return token != null;
   }
 
-  /// --- Logout (context optional) ---
   Future<void> logout([BuildContext? context]) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("token");
