@@ -505,48 +505,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
 
-                      if (events.isNotEmpty) ...[
-                        _buildSectionTitle(
-                          context,
-                          icon: Icons.dashboard_customize_rounded,
-                          title: "Snapshot",
-                          subtitle: "${upcoming.length} upcoming • ${past.length} past • ${todayEvents.length} today",
-                          color: cs.primary,
-                        ),
-                        SizedBox(
-                          height: 140,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: [
-                              _DashboardStatCard(
-                                icon: Icons.flash_on_rounded,
-                                value: ongoingNow.length.toString(),
-                                label: "Live now",
-                                color: cs.primary,
+                      // Events for selected day
+                      if (selectedEvents.isNotEmpty) ...[
+                        Text("Events on this day",
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                )),
+                        const SizedBox(height: 8),
+                        Column(
+                          children: selectedEvents.map((e) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    cs.primary.withOpacity(0.9),
+                                    cs.secondary.withOpacity(0.85),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: cs.primary.withOpacity(0.25),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              _DashboardStatCard(
-                                icon: Icons.calendar_today_rounded,
-                                value: todayEvents.length.toString(),
-                                label: "Today",
-                                color: cs.secondary,
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor:
+                                      Colors.white.withOpacity(0.25),
+                                  child: const Icon(Icons.event, color: Colors.white),
+                                ),
+                                title: Text(
+                                  e.title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  _eventTimeLabelForDay(
+                                      e, _selectedDay ?? e.startTime),
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.85),
+                                  ),
+                                ),
+                                trailing: Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => EventScreen(
+                                        event: e,
+                                        currentUserId: currentUserId,
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                              const SizedBox(width: 12),
-                              _DashboardStatCard(
-                                icon: Icons.groups_rounded,
-                                value: attendingCount.toString(),
-                                label: "You're in",
-                                color: cs.tertiary ?? cs.secondary,
-                              ),
-                              const SizedBox(width: 12),
-                              _DashboardStatCard(
-                                icon: Icons.edit_calendar_rounded,
-                                value: hostingCount.toString(),
-                                label: "You're hosting",
-                                color: cs.error,
-                              ),
-                            ],
-                          ),
+                            );
+                          }).toList(),
                         ),
                         const SizedBox(height: 24),
                       ],
@@ -681,6 +705,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ],
 
+                      if (events.isNotEmpty) ...[
+                        _buildSectionTitle(
+                          context,
+                          icon: Icons.dashboard_customize_rounded,
+                          title: "Snapshot",
+                          subtitle: "${upcoming.length} upcoming • ${past.length} past • ${todayEvents.length} today",
+                          color: cs.primary,
+                        ),
+                        SizedBox(
+                          height: 140,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              _DashboardStatCard(
+                                icon: Icons.flash_on_rounded,
+                                value: ongoingNow.length.toString(),
+                                label: "Live now",
+                                color: cs.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              _DashboardStatCard(
+                                icon: Icons.calendar_today_rounded,
+                                value: todayEvents.length.toString(),
+                                label: "Today",
+                                color: cs.secondary,
+                              ),
+                              const SizedBox(width: 12),
+                              _DashboardStatCard(
+                                icon: Icons.groups_rounded,
+                                value: attendingCount.toString(),
+                                label: "You're in",
+                                color: cs.tertiary ?? cs.secondary,
+                              ),
+                              const SizedBox(width: 12),
+                              _DashboardStatCard(
+                                icon: Icons.edit_calendar_rounded,
+                                value: hostingCount.toString(),
+                                label: "You're hosting",
+                                color: cs.error,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
                       if (categories.isNotEmpty) ...[
                         _buildSectionTitle(
                           context,
@@ -720,76 +790,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // Events for selected day
-                      if (selectedEvents.isNotEmpty) ...[
-                        Text("Events on this day",
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                )),
-                        const SizedBox(height: 8),
-                        Column(
-                          children: selectedEvents.map((e) {
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    cs.primary.withOpacity(0.9),
-                                    cs.secondary.withOpacity(0.85),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: cs.primary.withOpacity(0.25),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor:
-                                      Colors.white.withOpacity(0.25),
-                                  child: const Icon(Icons.event, color: Colors.white),
-                                ),
-                                title: Text(
-                                  e.title,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  _eventTimeLabelForDay(
-                                      e, _selectedDay ?? e.startTime),
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.85),
-                                  ),
-                                ),
-                                trailing: Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: Colors.white.withOpacity(0.8),
-                                ),
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => EventScreen(
-                                        event: e,
-                                        currentUserId: currentUserId,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          }).toList(),
                         ),
                         const SizedBox(height: 24),
                       ],
