@@ -63,6 +63,7 @@ class EventRepository {
     String? location,
     double? latitude,
     double? longitude,
+    String? visibility,
     File? coverImage,
     List<File>? files,
   }) async {
@@ -116,6 +117,7 @@ class EventRepository {
     required String description,
     required DateTime startTime,
     DateTime? endTime,
+    String? visibility,
     String? location,
     double? latitude,
     double? longitude,

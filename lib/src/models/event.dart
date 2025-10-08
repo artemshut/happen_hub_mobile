@@ -17,6 +17,7 @@ class Event {
   final double? longitude;
   final List<Comment>? comments;
   final String? coverImageUrl;
+  String? visibility; // "public" or "friends" or "private"
   final List<EventFile>? files;
 
   Event({
@@ -32,6 +33,7 @@ class Event {
     this.comments,
     this.latitude,
     this.longitude,
+    this.visibility,
     this.coverImageUrl,
     this.files,
   });
@@ -107,6 +109,7 @@ class Event {
       comments: comments,
       coverImageUrl: attrs['cover_image_url']?.toString(),
       files: files,
+      visibility: attrs['visibility']?.toString(),
       latitude: attrs['latitude'] != null ? (attrs['latitude'] as num).toDouble() : null,
       longitude: attrs['longitude'] != null ? (attrs['longitude'] as num).toDouble() : null,
     );

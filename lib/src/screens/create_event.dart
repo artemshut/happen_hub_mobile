@@ -5,7 +5,6 @@ import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 
 import '../repositories/event_repository.dart';
-import '../models/event.dart';
 import '../services/secrets.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -36,6 +35,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   double? _lng;
 
   String? _googleApiKey;
+
+  // 👁️ Visibility
+  String _visibility = 'public';
 
   @override
   void initState() {
@@ -112,6 +114,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         files: _files,
       );
 
+      // Add visibility
+      newEvent.visibility = _visibility;
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("✅ Event created successfully")),
@@ -164,6 +169,22 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 labelText: "Description",
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 16),
+
+            // ✅ Visibility dropdown
+            DropdownButtonFormField<String>(
+              value: _visibility,
+              decoration: const InputDecoration(
+                labelText: "Visibility",
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: "public", child: Text("Public")),
+                DropdownMenuItem(value: "friends", child: Text("Friends")),
+                DropdownMenuItem(value: "private", child: Text("Private")),
+              ],
+              onChanged: (v) => setState(() => _visibility = v!),
             ),
             const SizedBox(height: 16),
 

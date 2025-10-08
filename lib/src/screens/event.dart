@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_html/flutter_html.dart';
@@ -14,8 +12,44 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'edit_event.dart';
 
 import '../models/event.dart';
+import '../models/event_participation.dart';
 import '../repositories/event_repository.dart';
 import '../utils/rsvp_helper.dart';
+
+class _RsvpOption {
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  const _RsvpOption({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+}
+
+const List<_RsvpOption> _rsvpOptions = [
+  _RsvpOption(
+    value: "accepted",
+    label: "Going",
+    icon: Icons.check_circle_rounded,
+    color: Colors.green,
+  ),
+  _RsvpOption(
+    value: "maybe",
+    label: "Maybe",
+    icon: Icons.help_rounded,
+    color: Colors.orange,
+  ),
+  _RsvpOption(
+    value: "declined",
+    label: "Can't go",
+    icon: Icons.cancel_rounded,
+    color: Colors.redAccent,
+  ),
+];
 
 class EventScreen extends StatefulWidget {
   final Event event;
@@ -35,6 +69,8 @@ class _EventScreenState extends State<EventScreen>
     with SingleTickerProviderStateMixin {
   final EventRepository _repo = EventRepository();
   late Future<Event> _eventFuture;
+  bool _rsvpLoading = false;
+  String? _pendingRsvp;
 
   YoutubePlayerController? _ytController;
   late AnimationController _animCtrl;
@@ -114,6 +150,141 @@ class _EventScreenState extends State<EventScreen>
     }
   }
 
+  EventParticipation? _participationFor(Event event) {
+    final parts = event.participations;
+    if (parts == null) return null;
+    for (final p in parts) {
+      if (p.user?.id == widget.currentUserId) return p;
+    }
+    return null;
+  }
+
+  String? _currentRsvpFor(Event event) {
+    final status = _participationFor(event)?.rsvpStatus;
+    if (status == null || status == "pending" || status.isEmpty) return null;
+    return status;
+  }
+
+  _RsvpOption? _optionFor(String status) {
+    for (final opt in _rsvpOptions) {
+      if (opt.value == status) return opt;
+    }
+    return null;
+  }
+
+  String _rsvpLabel(String status) {
+    return _optionFor(status)?.label ?? status;
+  }
+
+  Future<void> _handleRsvpTap(Event event, String status) async {
+    if (_rsvpLoading) return;
+    final current = _currentRsvpFor(event);
+    if (_pendingRsvp == null && current == status) return;
+
+    if (mounted) {
+      setState(() {
+        _rsvpLoading = true;
+        _pendingRsvp = status;
+      });
+    }
+
+    try {
+      await _repo.updateRsvp(context, event.id, status);
+      final refreshed = await _repo.fetchEvent(context, event.id);
+      if (mounted) {
+        setState(() {
+          _eventFuture = Future.value(refreshed);
+          _pendingRsvp = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("RSVP updated to ${_rsvpLabel(status)}")),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _pendingRsvp = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Failed to update RSVP. Please try again.",
+              style: TextStyle(color: Theme.of(context).colorScheme.onError),
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _rsvpLoading = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildRsvpChoice(
+      BuildContext context, Event event, _RsvpOption option, String? selected) {
+    final cs = Theme.of(context).colorScheme;
+    final isSelected = selected == option.value;
+    final disabled = _rsvpLoading;
+
+    final background = isSelected
+        ? option.color.withOpacity(0.18)
+        : cs.surface.withOpacity(0.35);
+    final borderColor =
+        isSelected ? option.color : cs.outline.withOpacity(0.4);
+    final iconColor = isSelected ? option.color : cs.onSurfaceVariant;
+    final textColor = isSelected ? option.color : cs.onSurface;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: disabled ? null : () => _handleRsvpTap(event, option.value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: borderColor,
+              width: isSelected ? 2 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: option.color.withOpacity(0.25),
+                      offset: const Offset(0, 10),
+                      blurRadius: 20,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(option.icon, color: iconColor, size: 28),
+              const SizedBox(height: 8),
+              Text(
+                option.label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _maybeRenderYouTube(String text) {
     final ytRegex =
         RegExp(r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})');
@@ -165,6 +336,9 @@ class _EventScreenState extends State<EventScreen>
           final displayParticipations = participations.take(8).toList();
           final remainingCount =
               participations.length > 8 ? participations.length - 8 : 0;
+          final selectedStatus = _pendingRsvp ?? _currentRsvpFor(e);
+          final summaryOption =
+              selectedStatus != null ? _optionFor(selectedStatus) : null;
 
           return CustomScrollView(
             slivers: [
@@ -267,6 +441,192 @@ class _EventScreenState extends State<EventScreen>
                           ),
                         ),
                       const SizedBox(height: 16),
+
+                      ScaleTransition(
+                        scale: CurvedAnimation(
+                          parent: _animCtrl,
+                          curve: Curves.elasticOut,
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceVariant.withOpacity(0.65),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: cs.outline.withOpacity(0.18),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: cs.shadow.withOpacity(0.06),
+                                blurRadius: 18,
+                                offset: const Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "Your RSVP",
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: cs.onSurface,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          summaryOption != null
+                                              ? "Thanks for keeping everyone in the loop."
+                                              : "Let others know if they can count on you.",
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                color: cs.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  AnimatedSwitcher(
+                                    duration:
+                                        const Duration(milliseconds: 200),
+                                    child: _rsvpLoading
+                                        ? SizedBox(
+                                            key: const ValueKey("loader"),
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.6,
+                                              color: summaryOption?.color ??
+                                                  cs.primary,
+                                            ),
+                                          )
+                                        : summaryOption != null
+                                            ? Container(
+                                                key: ValueKey(
+                                                    summaryOption.value),
+                                                padding: const EdgeInsets
+                                                    .symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: summaryOption.color
+                                                      .withOpacity(0.14),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          999),
+                                                  border: Border.all(
+                                                    color: summaryOption.color
+                                                        .withOpacity(0.4),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      summaryOption.icon,
+                                                      size: 16,
+                                                      color:
+                                                          summaryOption.color,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      summaryOption.label,
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: summaryOption
+                                                            .color,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                            : Container(
+                                                key: const ValueKey(
+                                                    "no-response"),
+                                                padding: const EdgeInsets
+                                                    .symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: cs.surface
+                                                      .withOpacity(0.6),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          999),
+                                                  border: Border.all(
+                                                    color: cs.outline
+                                                        .withOpacity(0.3),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons
+                                                          .hourglass_bottom_rounded,
+                                                      size: 16,
+                                                      color: cs
+                                                          .onSurfaceVariant,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      "No response yet",
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: cs
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 18),
+                              Row(
+                                children: _rsvpOptions
+                                    .map(
+                                      (opt) => Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 4),
+                                          child: _buildRsvpChoice(
+                                            context,
+                                            e,
+                                            opt,
+                                            selectedStatus,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
                       _maybeRenderYouTube(e.description),
                       const SizedBox(height: 24),
@@ -403,35 +763,6 @@ class _EventScreenState extends State<EventScreen>
                         const SizedBox(height: 24),
                       ],
 
-                      // ✅ Join Button
-                      Center(
-                        child: ScaleTransition(
-                          scale: CurvedAnimation(
-                            parent: _animCtrl,
-                            curve: Curves.elasticOut,
-                          ),
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: cs.primary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 28, vertical: 14),
-                            ),
-                            onPressed: () {},
-                            icon: const Icon(Icons.celebration,
-                                color: Colors.white),
-                            label: const Text(
-                              "Join Event 🎉",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),

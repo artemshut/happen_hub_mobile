@@ -37,16 +37,17 @@ class _EditEventScreenState extends State<EditEventScreen> {
   DateTime? _endTime;
   File? _newCoverImage;
   List<File> _newFiles = [];
-  List<String> _removedFiles = []; // will store signed_ids
+  List<String> _removedFiles = []; // signed_ids
 
-  // Google API
   String? _googleApiKey;
   bool _loadingKey = true;
   String? _selectedAddress;
   double? _lat;
   double? _lng;
-
   bool _isSaving = false;
+
+  // 👁️ Visibility dropdown
+  late String _visibility;
 
   @override
   void initState() {
@@ -58,7 +59,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
         TextEditingController(text: widget.event.location ?? '');
     _startTime = widget.event.startTime;
     _endTime = widget.event.endTime;
-
+    _visibility = widget.event.visibility ?? 'public';
     _loadSecrets();
   }
 
@@ -146,8 +147,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
         longitude: _lng,
         coverImage: _newCoverImage,
         files: _newFiles.isNotEmpty ? _newFiles : null,
-        removedFiles: _removedFiles, // ✅ send signed_ids, not URLs
+        removedFiles: _removedFiles,
       );
+
+      saved.visibility = _visibility;
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -160,9 +163,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Failed to update: $e")),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("❌ Failed to update: $e")));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -219,7 +221,23 @@ class _EditEventScreenState extends State<EditEventScreen> {
               ),
               const SizedBox(height: 16),
 
-              // ✅ Location autocomplete (Google)
+              // 👁️ Visibility dropdown
+              DropdownButtonFormField<String>(
+                value: _visibility,
+                decoration: const InputDecoration(
+                  labelText: "Visibility",
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: "public", child: Text("Public")),
+                  DropdownMenuItem(value: "friends", child: Text("Friends")),
+                  DropdownMenuItem(value: "private", child: Text("Private")),
+                ],
+                onChanged: (v) => setState(() => _visibility = v!),
+              ),
+              const SizedBox(height: 16),
+
+              // ✅ Location autocomplete
               GooglePlaceAutoCompleteTextField(
                 textEditingController: _locationController,
                 googleAPIKey: _googleApiKey!,
@@ -262,9 +280,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ✅ Cover Image
+              // Cover Image
               Text("Cover Image", style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
+
               if (_newCoverImage != null)
                 Stack(
                   children: [
@@ -291,7 +310,6 @@ class _EditEventScreenState extends State<EditEventScreen> {
                         icon: const Icon(Icons.close, color: Colors.red),
                         onPressed: () => setState(() {
                           _newCoverImage = null;
-                          // could also track removed cover if BE supports
                         }),
                       ),
                     ),
@@ -306,7 +324,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
               ),
               const SizedBox(height: 16),
 
-              // ✅ Files Preview
+              // Files
               Text("Files", style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
@@ -315,12 +333,12 @@ class _EditEventScreenState extends State<EditEventScreen> {
                 children: [
                   if (widget.event.files != null)
                     ...widget.event.files!
-                        .where((f) => !_removedFiles.contains(f.signedId)) // use signedId
+                        .where((f) => !_removedFiles.contains(f.signedId))
                         .map(
                           (f) => Chip(
                             label: Text(f.filename),
                             onDeleted: () => setState(() {
-                              _removedFiles.add(f.signedId); // ✅ push signedId
+                              _removedFiles.add(f.signedId);
                             }),
                           ),
                         ),
