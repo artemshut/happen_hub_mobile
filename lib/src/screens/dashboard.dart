@@ -26,6 +26,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Map<DateTime, List<Event>> _groupedEvents = {};
+  String? _selectedCategory;
 
   DateTime _dayKey(DateTime dt) => DateTime.utc(dt.year, dt.month, dt.day);
 
@@ -309,6 +310,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _groupedEvents[d] ?? [];
   }
 
+  bool _isEventOngoing(Event event, DateTime reference) {
+    final end = event.endTime ?? event.startTime;
+    return !reference.isBefore(event.startTime) &&
+        !reference.isAfter(end);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -381,6 +388,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   final upcoming = events.where((e) => e.startTime.isAfter(now)).toList();
                   final past = events.where((e) => e.startTime.isBefore(now)).toList();
                   final selectedEvents = _selectedDay != null ? _getEventsForDay(_selectedDay!) : [];
+                  final todayEvents = _getEventsForDay(now);
+                  final ongoingNow = events.where((e) => _isEventOngoing(e, now)).toList();
+                  upcoming.sort((a, b) => a.startTime.compareTo(b.startTime));
+                  past.sort((a, b) => b.startTime.compareTo(a.startTime));
+
+                  final hostingCount = upcoming
+                      .where((e) => e.user?.id == currentUserId)
+                      .length;
+                  final attendingCount = events.where((e) {
+                    final participations = e.participations;
+                    if (participations == null) return false;
+                    return participations.any((p) =>
+                        p.user?.id == currentUserId &&
+                        p.rsvpStatus == "accepted");
+                  }).length;
+
+                  final categories = events
+                      .map((e) => e.category?.name?.trim())
+                      .whereType<String>()
+                      .where((name) => name.isNotEmpty)
+                      .toSet()
+                      .toList()
+                    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+                  final filteredUpcoming = _selectedCategory == null
+                      ? upcoming
+                      : upcoming
+                          .where((e) =>
+                              (e.category?.name ?? "").trim() ==
+                              _selectedCategory)
+                          .toList();
+
+                  final nextEvent =
+                      filteredUpcoming.isNotEmpty ? filteredUpcoming.first : null;
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -464,6 +505,225 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
 
+                      if (events.isNotEmpty) ...[
+                        _buildSectionTitle(
+                          context,
+                          icon: Icons.dashboard_customize_rounded,
+                          title: "Snapshot",
+                          subtitle: "${upcoming.length} upcoming • ${past.length} past • ${todayEvents.length} today",
+                          color: cs.primary,
+                        ),
+                        SizedBox(
+                          height: 140,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              _DashboardStatCard(
+                                icon: Icons.flash_on_rounded,
+                                value: ongoingNow.length.toString(),
+                                label: "Live now",
+                                color: cs.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              _DashboardStatCard(
+                                icon: Icons.calendar_today_rounded,
+                                value: todayEvents.length.toString(),
+                                label: "Today",
+                                color: cs.secondary,
+                              ),
+                              const SizedBox(width: 12),
+                              _DashboardStatCard(
+                                icon: Icons.groups_rounded,
+                                value: attendingCount.toString(),
+                                label: "You're in",
+                                color: cs.tertiary ?? cs.secondary,
+                              ),
+                              const SizedBox(width: 12),
+                              _DashboardStatCard(
+                                icon: Icons.edit_calendar_rounded,
+                                value: hostingCount.toString(),
+                                label: "You're hosting",
+                                color: cs.error,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      if (nextEvent != null) ...[
+                        _buildSectionTitle(
+                          context,
+                          icon: Icons.bolt_rounded,
+                          title: "Next up",
+                          subtitle:
+                              "${nextEvent.startTime.day}/${nextEvent.startTime.month} • ${_formatTime(nextEvent.startTime)}",
+                          color: cs.secondary,
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => EventScreen(
+                                  event: nextEvent,
+                                  currentUserId: currentUserId,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            height: 170,
+                            margin: const EdgeInsets.only(bottom: 24),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: cs.secondary.withOpacity(0.25),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 16),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  if (nextEvent.coverImageUrl != null)
+                                    Image.network(
+                                      nextEvent.coverImageUrl!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  else
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            cs.secondaryContainer,
+                                            cs.primaryContainer,
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                      ),
+                                    ),
+                                  Container(
+                                    decoration: const BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.black87,
+                                          Colors.transparent,
+                                        ],
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.access_time,
+                                                color: Colors.white70),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              _eventTimeLabelForDay(
+                                                  nextEvent, nextEvent.startTime),
+                                              style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const Spacer(),
+                                        Text(
+                                          nextEvent.title,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        if ((nextEvent.location ?? "")
+                                            .isNotEmpty)
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.place,
+                                                  size: 16,
+                                                  color: Colors.white70),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  nextEvent.location!,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: Colors.white70,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      if (categories.isNotEmpty) ...[
+                        _buildSectionTitle(
+                          context,
+                          icon: Icons.filter_alt_rounded,
+                          title: "Filter by category",
+                          subtitle: "Tap to focus upcoming events",
+                          color: cs.primary,
+                        ),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _CategoryFilterChip(
+                                label: "All",
+                                selected: _selectedCategory == null,
+                                onTap: () {
+                                  setState(() {
+                                    _selectedCategory = null;
+                                  });
+                                },
+                              ),
+                              const SizedBox(width: 10),
+                              ...categories.map(
+                                (cat) => Padding(
+                                  padding: const EdgeInsets.only(right: 10),
+                                  child: _CategoryFilterChip(
+                                    label: cat,
+                                    selected: _selectedCategory == cat,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedCategory =
+                                            _selectedCategory == cat ? null : cat;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
                       // Events for selected day
                       if (selectedEvents.isNotEmpty) ...[
                         Text("Events on this day",
@@ -536,86 +796,158 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                       // Upcoming Events
                       if (upcoming.isNotEmpty) ...[
-                        Text("Upcoming Events",
+                        Text(
+                            _selectedCategory == null
+                                ? "Upcoming Events"
+                                : "Upcoming • $_selectedCategory",
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: cs.primary,
                                 )),
                         const SizedBox(height: 12),
-                        SizedBox(
-                          height: 220,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: upcoming.length,
-                            itemBuilder: (context, i) {
-                              final e = upcoming[i];
-                              return GestureDetector(
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => EventScreen(
-                                        event: e,
-                                        currentUserId: currentUserId,
+                        if (filteredUpcoming.isEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: cs.surfaceVariant.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Text(
+                              "No events in this category yet. Try a different filter or create one!",
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: cs.onSurfaceVariant),
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            height: 220,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: filteredUpcoming.length,
+                              itemBuilder: (context, i) {
+                                final e = filteredUpcoming[i];
+                                return GestureDetector(
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => EventScreen(
+                                          event: e,
+                                          currentUserId: currentUserId,
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  width: 260,
-                                  margin: const EdgeInsets.only(right: 12),
-                                  child: Card(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    clipBehavior: Clip.antiAlias,
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        if (e.coverImageUrl != null)
-                                          Image.network(e.coverImageUrl!,
-                                              fit: BoxFit.cover)
-                                        else
-                                          Container(color: cs.primary),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                Colors.black.withOpacity(0.6),
-                                                Colors.transparent
-                                              ],
-                                              begin: Alignment.bottomCenter,
-                                              end: Alignment.topCenter,
+                                    );
+                                  },
+                                  child: Container(
+                                    width: 260,
+                                    margin: const EdgeInsets.only(right: 12),
+                                    child: Card(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          if (e.coverImageUrl != null)
+                                            Image.network(e.coverImageUrl!,
+                                                fit: BoxFit.cover)
+                                          else
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    cs.primary.withOpacity(0.85),
+                                                    cs.secondary.withOpacity(0.85),
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                              ),
+                                            ),
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  Colors.black.withOpacity(0.7),
+                                                  Colors.transparent
+                                                ],
+                                                begin: Alignment.bottomCenter,
+                                                end: Alignment.topCenter,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              const Spacer(),
-                                              Text(e.title,
-                                                  style: TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      color: Colors.white,
-                                                      fontSize: 16)),
-                                              Text(
-                                                "${e.startTime.day}/${e.startTime.month}/${e.startTime.year}",
-                                                style: const TextStyle(
-                                                    color: Colors.white70),
-                                              ),
-                                            ],
+                                          Padding(
+                                            padding: const EdgeInsets.all(16),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Icon(Icons.schedule,
+                                                        size: 16,
+                                                        color: Colors.white
+                                                            .withOpacity(0.85)),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      "${_formatTime(e.startTime)} • ${e.startTime.day}/${e.startTime.month}",
+                                                      style: const TextStyle(
+                                                        color: Colors.white70,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const Spacer(),
+                                                Text(e.title,
+                                                    style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors.white,
+                                                        fontSize: 16)),
+                                                if ((e.location ?? "")
+                                                    .isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(
+                                                        top: 6.0),
+                                                    child: Row(
+                                                      children: [
+                                                        const Icon(Icons.place,
+                                                            size: 14,
+                                                            color:
+                                                                Colors.white70),
+                                                        const SizedBox(width: 6),
+                                                        Expanded(
+                                                          child: Text(
+                                                            e.location!,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                const TextStyle(
+                                                              color:
+                                                                  Colors.white70,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
-                        ),
                         const SizedBox(height: 24),
                       ],
 
@@ -663,6 +995,159 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    Color? color,
+  }) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final resolved = color ?? cs.primary;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            height: 38,
+            width: 38,
+            decoration: BoxDecoration(
+              color: resolved.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: resolved),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: cs.onSurface,
+                  ),
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardStatCard extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _DashboardStatCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: 120,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryFilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CategoryFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: selected
+                ? cs.primary.withOpacity(0.16)
+                : cs.surfaceVariant.withOpacity(0.6),
+            border: Border.all(
+              color: selected
+                  ? cs.primary
+                  : cs.outline.withOpacity(0.25),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? cs.primary : cs.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ),
     );
   }
