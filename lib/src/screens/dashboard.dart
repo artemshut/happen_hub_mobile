@@ -27,6 +27,196 @@ class _DashboardScreenState extends State<DashboardScreen> {
   DateTime? _selectedDay;
   Map<DateTime, List<Event>> _groupedEvents = {};
 
+  DateTime _dayKey(DateTime dt) => DateTime.utc(dt.year, dt.month, dt.day);
+
+  DateTime _stripTime(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+
+  String _formatTime(DateTime dt) =>
+      "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+
+  String _eventTimeLabelForDay(Event event, DateTime day) {
+    final dayOnly = _stripTime(day);
+    final startDay = _stripTime(event.startTime);
+    final endDay = _stripTime(event.endTime ?? event.startTime);
+    final hasEnd = event.endTime != null;
+
+    if (isSameDay(dayOnly, startDay)) {
+      if (!hasEnd || isSameDay(event.startTime, event.endTime!)) {
+        return _formatTime(event.startTime) +
+            (hasEnd ? " → ${_formatTime(event.endTime!)}" : "");
+      }
+      return "${_formatTime(event.startTime)} • continues";
+    }
+
+    if (hasEnd && isSameDay(dayOnly, endDay)) {
+      return "Ends ${_formatTime(event.endTime!)}";
+    }
+
+    if (hasEnd &&
+        dayOnly.isAfter(startDay) &&
+        dayOnly.isBefore(endDay)) {
+      return "All day • ongoing";
+    }
+
+    return "All day";
+  }
+
+  Widget _buildCalendarDay(
+    BuildContext context,
+    DateTime day,
+    DateTime focusedDay, {
+    required bool isSelected,
+    required bool isToday,
+    required bool isOutside,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final events = _getEventsForDay(day);
+    final hasEvents = events.isNotEmpty;
+    final dayOnly = _stripTime(day);
+
+    bool connectsLeft = false;
+    bool connectsRight = false;
+
+    for (final event in events) {
+      final start = _stripTime(event.startTime);
+      final end = _stripTime(event.endTime ?? event.startTime);
+      if (end.isBefore(start)) continue;
+
+      if (dayOnly.isAfter(start) && !dayOnly.isAfter(end)) {
+        connectsLeft = true;
+      }
+      if (dayOnly.isBefore(end) && !dayOnly.isBefore(start)) {
+        connectsRight = true;
+      }
+    }
+
+    final onlySingleDay = hasEvents &&
+        events.every((event) {
+          final start = _stripTime(event.startTime);
+          final end = _stripTime(event.endTime ?? event.startTime);
+          return isSameDay(start, end);
+        });
+
+    final borderRadius = !hasEvents
+        ? BorderRadius.circular(12)
+        : (!connectsLeft && !connectsRight) || onlySingleDay
+            ? BorderRadius.circular(16)
+            : connectsLeft && connectsRight
+                ? BorderRadius.circular(6)
+                : connectsLeft
+                    ? const BorderRadius.horizontal(
+                        left: Radius.circular(6),
+                        right: Radius.circular(16),
+                      )
+                    : const BorderRadius.horizontal(
+                        left: Radius.circular(16),
+                        right: Radius.circular(6),
+                      );
+
+    final margin = EdgeInsets.only(
+      left: connectsLeft ? 2 : 6,
+      right: connectsRight ? 2 : 6,
+      top: 6,
+      bottom: 6,
+    );
+
+    final List<Color>? gradientColors =
+        hasEvents || isSelected
+            ? (isSelected
+                ? [
+                    cs.primary,
+                    cs.secondary,
+                  ]
+                : [
+                    cs.primary.withOpacity(isOutside ? 0.15 : 0.25),
+                    (cs.tertiary ?? cs.secondary)
+                        .withOpacity(isOutside ? 0.1 : 0.2),
+                  ])
+            : null;
+
+    final gradient = gradientColors != null
+        ? LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : null;
+
+    final textColor = isSelected
+        ? cs.onPrimary
+        : isOutside
+            ? cs.onSurface.withOpacity(0.3)
+            : cs.onSurface;
+
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        color: gradient == null ? Colors.transparent : null,
+        gradient: gradient,
+        borderRadius: borderRadius,
+        border: isToday
+            ? Border.all(
+                color: isSelected
+                    ? cs.onPrimary.withOpacity(0.6)
+                    : cs.primary.withOpacity(0.8),
+                width: 1.4,
+              )
+            : null,
+        boxShadow: hasEvents || isSelected
+            ? [
+                BoxShadow(
+                  color: (isSelected
+                          ? cs.primary.withOpacity(0.35)
+                          : cs.primary.withOpacity(isOutside ? 0.12 : 0.22)),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : null,
+      ),
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.center,
+            child: Text(
+              "${day.day}",
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (hasEvents)
+            Positioned(
+              bottom: 6,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.25)
+                        : Colors.white.withOpacity(0.65),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    events.length.toString(),
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : cs.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -99,16 +289,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<DateTime, List<Event>> _groupEventsByDay(List<Event> events) {
     final Map<DateTime, List<Event>> data = {};
     for (var e in events) {
-      final day =
-          DateTime.utc(e.startTime.year, e.startTime.month, e.startTime.day);
-      data.putIfAbsent(day, () => []);
-      data[day]!.add(e);
+      final start = _stripTime(e.startTime);
+      final end = _stripTime(e.endTime ?? e.startTime);
+      DateTime cursor = start;
+      while (!cursor.isAfter(end)) {
+        final key = _dayKey(cursor);
+        data.putIfAbsent(key, () => []);
+        if (!data[key]!.contains(e)) {
+          data[key]!.add(e);
+        }
+        cursor = cursor.add(const Duration(days: 1));
+      }
     }
     return data;
   }
 
   List<Event> _getEventsForDay(DateTime day) {
-    final d = DateTime.utc(day.year, day.month, day.day);
+    final d = _dayKey(day);
     return _groupedEvents[d] ?? [];
   }
 
@@ -218,17 +415,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                             calendarStyle: CalendarStyle(
-                              todayDecoration: BoxDecoration(
-                                color: cs.primary.withOpacity(0.3),
-                                shape: BoxShape.circle,
-                              ),
-                              selectedDecoration: BoxDecoration(
-                                color: cs.primary,
-                                shape: BoxShape.circle,
-                              ),
+                              outsideDaysVisible: false,
+                              markersMaxCount: 0,
+                              todayDecoration: const BoxDecoration(),
+                              selectedDecoration: const BoxDecoration(),
                               weekendTextStyle:
                                   TextStyle(color: cs.secondary),
-                              outsideDaysVisible: false,
+                            ),
+                            calendarBuilders: CalendarBuilders(
+                              defaultBuilder: (context, day, focusedDay) =>
+                                  _buildCalendarDay(
+                                context,
+                                day,
+                                focusedDay,
+                                isSelected: isSameDay(_selectedDay, day),
+                                isToday: isSameDay(day, DateTime.now()),
+                                isOutside: day.month != focusedDay.month,
+                              ),
+                              outsideBuilder: (context, day, focusedDay) =>
+                                  _buildCalendarDay(
+                                context,
+                                day,
+                                focusedDay,
+                                isSelected: isSameDay(_selectedDay, day),
+                                isToday: isSameDay(day, DateTime.now()),
+                                isOutside: true,
+                              ),
+                              todayBuilder: (context, day, focusedDay) =>
+                                  _buildCalendarDay(
+                                context,
+                                day,
+                                focusedDay,
+                                isSelected: isSameDay(_selectedDay, day),
+                                isToday: true,
+                                isOutside: day.month != focusedDay.month,
+                              ),
+                              selectedBuilder: (context, day, focusedDay) =>
+                                  _buildCalendarDay(
+                                context,
+                                day,
+                                focusedDay,
+                                isSelected: true,
+                                isToday: isSameDay(day, DateTime.now()),
+                                isOutside: day.month != focusedDay.month,
+                              ),
                             ),
                           ),
                         ),
@@ -243,13 +473,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 8),
                         Column(
                           children: selectedEvents.map((e) {
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    cs.primary.withOpacity(0.9),
+                                    cs.secondary.withOpacity(0.85),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: cs.primary.withOpacity(0.25),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
                               child: ListTile(
-                                leading: const Icon(Icons.event),
-                                title: Text(e.title),
+                                leading: CircleAvatar(
+                                  backgroundColor:
+                                      Colors.white.withOpacity(0.25),
+                                  child: const Icon(Icons.event, color: Colors.white),
+                                ),
+                                title: Text(
+                                  e.title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                                 subtitle: Text(
-                                    "${e.startTime.hour.toString().padLeft(2, '0')}:${e.startTime.minute.toString().padLeft(2, '0')}"),
+                                  _eventTimeLabelForDay(
+                                      e, _selectedDay ?? e.startTime),
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.85),
+                                  ),
+                                ),
+                                trailing: Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
