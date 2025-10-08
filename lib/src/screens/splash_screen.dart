@@ -19,6 +19,8 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeIn;
+  late Animation<double> _logoScale;
+  late Animation<double> _textFade;
 
   final AuthService _authService = AuthService();
 
@@ -27,13 +29,28 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
 
     // 🎨 Animation setup
-    _controller =
-        AnimationController(vsync: this, duration: const Duration(seconds: 2));
-    _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _fadeIn = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    );
+    _logoScale = Tween<double>(begin: 0.9, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.75, curve: Curves.easeOutBack),
+      ),
+    );
+    _textFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.45, 1.0, curve: Curves.easeIn),
+    );
     _controller.forward();
 
     // ⏳ After delay, check auth
-    Future.delayed(const Duration(seconds: 2), _checkAuth);
+    Future.delayed(const Duration(milliseconds: 1600), _checkAuth);
   }
 
   Future<void> _checkAuth() async {
@@ -71,33 +88,52 @@ class _SplashScreenState extends State<SplashScreen>
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: FadeTransition(
-        opacity: _fadeIn,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [cs.primary, cs.secondary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [cs.primary, cs.secondary],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+        ),
+        child: FadeTransition(
+          opacity: _fadeIn,
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // 🖼 Your logo
-                Image.asset(
-                  "assets/images/logo_white.png",
-                  width: 120,
-                  height: 120,
+                ScaleTransition(
+                  scale: _logoScale,
+                  child: Image.asset(
+                    "assets/images/logo_white.png",
+                    width: 120,
+                    height: 120,
+                  ),
                 ),
                 const SizedBox(height: 20),
-                Text(
-                  "HappenHub",
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: cs.onPrimary,
+                FadeTransition(
+                  opacity: _textFade,
+                  child: Column(
+                    children: [
+                      Text(
+                        "HappenHub",
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onPrimary,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Discover what's happening around you",
+                        style: TextStyle(
+                          color: cs.onPrimary.withOpacity(0.8),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
