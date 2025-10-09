@@ -256,6 +256,7 @@ class _EventScreenState extends State<EventScreen>
   late Future<Event> _eventFuture;
   bool _rsvpLoading = false;
   String? _pendingRsvp;
+  final ScrollController _scrollController = ScrollController();
 
   YoutubePlayerController? _ytController;
   late AnimationController _animCtrl;
@@ -275,6 +276,7 @@ class _EventScreenState extends State<EventScreen>
   void dispose() {
     _ytController?.dispose();
     _animCtrl.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -380,6 +382,9 @@ class _EventScreenState extends State<EventScreen>
     final current = _currentRsvpFor(event);
     if (_pendingRsvp == null && current == status) return;
 
+    final previousOffset =
+        _scrollController.hasClients ? _scrollController.offset : 0.0;
+
     if (mounted) {
       setState(() {
         _rsvpLoading = true;
@@ -394,6 +399,13 @@ class _EventScreenState extends State<EventScreen>
         setState(() {
           _eventFuture = Future.value(refreshed);
           _pendingRsvp = null;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_scrollController.hasClients) return;
+          final maxScroll = _scrollController.position.maxScrollExtent;
+          final targetOffset =
+              previousOffset.clamp(0.0, maxScroll);
+          _scrollController.jumpTo(targetOffset);
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("RSVP updated to ${_rsvpLabel(status)}")),
@@ -568,6 +580,7 @@ class _EventScreenState extends State<EventScreen>
               : null;
 
           return CustomScrollView(
+            controller: _scrollController,
             slivers: [
               SliverAppBar(
                 expandedHeight: 260,

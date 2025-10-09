@@ -316,6 +316,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         !reference.isAfter(end);
   }
 
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -387,22 +388,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   final now = DateTime.now();
                   final upcoming = events.where((e) => e.startTime.isAfter(now)).toList();
                   final past = events.where((e) => e.startTime.isBefore(now)).toList();
-                  final selectedEvents = _selectedDay != null ? _getEventsForDay(_selectedDay!) : [];
-                  final todayEvents = _getEventsForDay(now);
-                  final ongoingNow = events.where((e) => _isEventOngoing(e, now)).toList();
+                  final selectedEvents =
+                      _selectedDay != null ? _getEventsForDay(_selectedDay!) : [];
                   upcoming.sort((a, b) => a.startTime.compareTo(b.startTime));
                   past.sort((a, b) => b.startTime.compareTo(a.startTime));
-
-                  final hostingCount = upcoming
-                      .where((e) => e.user?.id == currentUserId)
-                      .length;
-                  final attendingCount = events.where((e) {
-                    final participations = e.participations;
-                    if (participations == null) return false;
-                    return participations.any((p) =>
-                        p.user?.id == currentUserId &&
-                        p.rsvpStatus == "accepted");
-                  }).length;
 
                   final categories = events
                       .map((e) => e.category?.name?.trim())
@@ -705,52 +694,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ],
 
-                      if (events.isNotEmpty) ...[
-                        _buildSectionTitle(
-                          context,
-                          icon: Icons.dashboard_customize_rounded,
-                          title: "Snapshot",
-                          subtitle: "${upcoming.length} upcoming • ${past.length} past • ${todayEvents.length} today",
-                          color: cs.primary,
-                        ),
-                        SizedBox(
-                          height: 140,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: [
-                              _DashboardStatCard(
-                                icon: Icons.flash_on_rounded,
-                                value: ongoingNow.length.toString(),
-                                label: "Live now",
-                                color: cs.primary,
-                              ),
-                              const SizedBox(width: 12),
-                              _DashboardStatCard(
-                                icon: Icons.calendar_today_rounded,
-                                value: todayEvents.length.toString(),
-                                label: "Today",
-                                color: cs.secondary,
-                              ),
-                              const SizedBox(width: 12),
-                              _DashboardStatCard(
-                                icon: Icons.groups_rounded,
-                                value: attendingCount.toString(),
-                                label: "You're in",
-                                color: cs.tertiary ?? cs.secondary,
-                              ),
-                              const SizedBox(width: 12),
-                              _DashboardStatCard(
-                                icon: Icons.edit_calendar_rounded,
-                                value: hostingCount.toString(),
-                                label: "You're hosting",
-                                color: cs.error,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-
                       if (categories.isNotEmpty) ...[
                         _buildSectionTitle(
                           context,
@@ -1043,62 +986,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DashboardStatCard extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color color;
-
-  const _DashboardStatCard({
-    required this.icon,
-    required this.value,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 120,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.18),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
