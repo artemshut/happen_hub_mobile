@@ -64,6 +64,7 @@ class EventRepository {
     double? latitude,
     double? longitude,
     String? visibility,
+    String? categoryId,
     File? coverImage,
     List<File>? files,
   }) async {
@@ -84,6 +85,18 @@ class EventRepository {
       request.fields['event[end_time]'] = endTime.toIso8601String();
     }
     if (location != null) request.fields['event[location]'] = location;
+    if (latitude != null) {
+      request.fields['event[latitude]'] = latitude.toString();
+    }
+    if (longitude != null) {
+      request.fields['event[longitude]'] = longitude.toString();
+    }
+    if (visibility != null) {
+      request.fields['event[visibility]'] = visibility;
+    }
+    if (categoryId != null && categoryId.isNotEmpty) {
+      request.fields['event[event_category_id]'] = categoryId;
+    }
 
     // Cover image
     if (coverImage != null) {
@@ -121,6 +134,7 @@ class EventRepository {
     String? location,
     double? latitude,
     double? longitude,
+    String? categoryId,
     File? coverImage,
     List<File>? files,
     List<String>? removedFiles, // signed_id from BE
@@ -142,6 +156,18 @@ class EventRepository {
       request.fields['event[end_time]'] = endTime.toIso8601String();
     }
     if (location != null) request.fields['event[location]'] = location;
+    if (latitude != null) {
+      request.fields['event[latitude]'] = latitude.toString();
+    }
+    if (longitude != null) {
+      request.fields['event[longitude]'] = longitude.toString();
+    }
+    if (visibility != null) {
+      request.fields['event[visibility]'] = visibility;
+    }
+    if (categoryId != null && categoryId.isNotEmpty) {
+      request.fields['event[event_category_id]'] = categoryId;
+    }
 
     // Cover image (optional new one)
     if (coverImage != null) {

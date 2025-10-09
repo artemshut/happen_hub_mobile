@@ -7,7 +7,9 @@ import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 
 import '../models/event.dart';
+import '../models/event_category.dart';
 import '../repositories/event_repository.dart';
+import '../repositories/event_category_repository.dart';
 import '../services/secrets.dart';
 import 'event.dart'; // EventScreen
 
@@ -28,6 +30,8 @@ class EditEventScreen extends StatefulWidget {
 class _EditEventScreenState extends State<EditEventScreen> {
   final _formKey = GlobalKey<FormState>();
   final _repo = EventRepository();
+  final EventCategoryRepository _categoryRepository =
+      EventCategoryRepository();
 
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
@@ -48,6 +52,10 @@ class _EditEventScreenState extends State<EditEventScreen> {
 
   // 👁️ Visibility dropdown
   late String _visibility;
+  List<EventCategory> _categories = [];
+  bool _loadingCategories = true;
+  String? _selectedCategoryId;
+  String? _categoriesError;
 
   @override
   void initState() {
@@ -60,7 +68,9 @@ class _EditEventScreenState extends State<EditEventScreen> {
     _startTime = widget.event.startTime;
     _endTime = widget.event.endTime;
     _visibility = widget.event.visibility ?? 'public';
+    _selectedCategoryId = widget.event.category?.id;
     _loadSecrets();
+    _fetchCategories();
   }
 
   Future<void> _loadSecrets() async {
@@ -69,6 +79,33 @@ class _EditEventScreenState extends State<EditEventScreen> {
       _googleApiKey = key;
       _loadingKey = false;
     });
+  }
+
+  Future<void> _fetchCategories() async {
+    try {
+      final fetched = await _categoryRepository.fetchCategories();
+      if (!mounted) return;
+
+      final categories = List<EventCategory>.from(fetched);
+      final current = widget.event.category;
+      if (current != null &&
+          categories.every((cat) => cat.id != current.id)) {
+        categories.add(current);
+      }
+
+      setState(() {
+        _categories = categories;
+        _loadingCategories = false;
+        _categoriesError = null;
+        _selectedCategoryId ??= current?.id;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _categoriesError = e.toString();
+        _loadingCategories = false;
+      });
+    }
   }
 
   @override
@@ -145,6 +182,8 @@ class _EditEventScreenState extends State<EditEventScreen> {
         location: _selectedAddress ?? _locationController.text.trim(),
         latitude: _lat,
         longitude: _lng,
+        visibility: _visibility,
+        categoryId: _selectedCategoryId,
         coverImage: _newCoverImage,
         files: _newFiles.isNotEmpty ? _newFiles : null,
         removedFiles: _removedFiles,
@@ -235,6 +274,56 @@ class _EditEventScreenState extends State<EditEventScreen> {
                 ],
                 onChanged: (v) => setState(() => _visibility = v!),
               ),
+              const SizedBox(height: 16),
+
+              if (_loadingCategories)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_categoriesError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    "Failed to load categories: $_categoriesError",
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                )
+              else if (_categories.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    "No categories available",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                )
+              else
+                DropdownButtonFormField<String>(
+                  value: _selectedCategoryId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: "Category",
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _categories
+                      .map(
+                        (cat) => DropdownMenuItem(
+                          value: cat.id,
+                          child: Text(
+                            cat.emoji != null && cat.emoji!.isNotEmpty
+                                ? "${cat.emoji} ${cat.name}"
+                                : cat.name,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _categories.isEmpty
+                      ? null
+                      : (value) => setState(() => _selectedCategoryId = value),
+                  hint: const Text("Select category"),
+                ),
               const SizedBox(height: 16),
 
               // ✅ Location autocomplete

@@ -1,6 +1,7 @@
 // lib/utils/json_api_parser.dart
 import 'dart:convert';
 import '../models/event.dart';
+import '../models/event_category.dart';
 import '../models/group.dart';
 
 class JsonApiParser {
@@ -60,5 +61,14 @@ class JsonApiParser {
         .map((item) => Group.fromJson(item, included: includedByType))
         .toList();
     return data;
+  }
+
+  /// Parse event categories from a JSON:API response
+  static List<EventCategory> parseEventCategories(String responseBody) {
+    final Map<String, dynamic> json = jsonDecode(responseBody);
+    final data = (json['data'] as List<dynamic>? ?? const []);
+    return data
+        .map((item) => EventCategory.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 }

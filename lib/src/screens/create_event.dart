@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 
+import '../models/event_category.dart';
+import '../repositories/event_category_repository.dart';
 import '../repositories/event_repository.dart';
 import '../services/secrets.dart';
 
@@ -19,6 +21,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _descController = TextEditingController();
   final _locationController = TextEditingController();
 
+  final EventCategoryRepository _categoryRepository = EventCategoryRepository();
+
   DateTime? _startTime;
   DateTime? _endTime;
   File? _coverImage;
@@ -26,6 +30,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   bool _loading = false;
   bool _loadingKey = true;
+  bool _loadingCategories = true;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -35,6 +40,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   double? _lng;
 
   String? _googleApiKey;
+  List<EventCategory> _categories = [];
+  String? _selectedCategoryId;
+  String? _categoriesError;
 
   // 👁️ Visibility
   String _visibility = 'public';
@@ -43,6 +51,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   void initState() {
     super.initState();
     _loadSecrets();
+    _fetchCategories();
   }
 
   Future<void> _loadSecrets() async {
@@ -51,6 +60,24 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       _googleApiKey = key;
       _loadingKey = false;
     });
+  }
+
+  Future<void> _fetchCategories() async {
+    try {
+      final categories = await _categoryRepository.fetchCategories();
+      if (!mounted) return;
+      setState(() {
+        _categories = categories;
+        _categoriesError = null;
+        _loadingCategories = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _categoriesError = e.toString();
+        _loadingCategories = false;
+      });
+    }
   }
 
   Future<void> _pickCoverImage() async {
@@ -110,6 +137,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         location: _selectedAddress ?? _locationController.text,
         latitude: _lat,
         longitude: _lng,
+        visibility: _visibility,
+        categoryId: _selectedCategoryId,
         coverImage: _coverImage,
         files: _files,
       );
@@ -186,6 +215,55 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               ],
               onChanged: (v) => setState(() => _visibility = v!),
             ),
+            const SizedBox(height: 16),
+
+            // 📂 Category dropdown
+            if (_loadingCategories)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_categoriesError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  "Failed to load categories: $_categoriesError",
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              )
+            else if (_categories.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  "No categories available",
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              )
+            else
+              DropdownButtonFormField<String>(
+                value: _selectedCategoryId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: "Category",
+                  border: OutlineInputBorder(),
+                ),
+                items: _categories
+                    .map(
+                      (cat) => DropdownMenuItem(
+                        value: cat.id,
+                        child: Text(
+                          cat.emoji != null && cat.emoji!.isNotEmpty
+                              ? "${cat.emoji} ${cat.name}"
+                              : cat.name,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _categories.isEmpty
+                    ? null
+                    : (value) => setState(() => _selectedCategoryId = value),
+                hint: const Text("Select category"),
+              ),
             const SizedBox(height: 16),
 
             // ✅ Location autocomplete
