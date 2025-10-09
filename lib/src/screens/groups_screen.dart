@@ -37,9 +37,30 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Groups"),
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
+        toolbarHeight: 76,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        titleSpacing: 24,
+        title: Text(
+          "Groups",
+          style: Theme.of(context)
+              .textTheme
+              .headlineSmall
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                cs.primary.withOpacity(0.85),
+                const Color(0xFF14121C),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: FutureBuilder<List<Group>>(
         future: _groupsFuture,
@@ -305,31 +326,14 @@ class _SummaryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final metrics = [
-      _SummaryMetric(
-        icon: Icons.groups_rounded,
-        label: "Total",
-        value: totalGroups.toString(),
-        color: cs.primary,
-      ),
-      _SummaryMetric(
-        icon: Icons.star_rounded,
-        label: "Created",
-        value: createdByMe.toString(),
-        color: cs.secondary,
-      ),
-      _SummaryMetric(
-        icon: Icons.handshake_rounded,
-        label: "Member",
-        value: memberGroups.toString(),
-        color: cs.tertiary ?? cs.primary,
-      ),
+      _SummaryMetric(icon: Icons.groups_rounded, label: "Total", value: totalGroups),
+      _SummaryMetric(icon: Icons.star_rounded, label: "Created", value: createdByMe),
+      _SummaryMetric(icon: Icons.handshake_rounded, label: "Member", value: memberGroups),
     ];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: metrics
             .map(
@@ -346,14 +350,12 @@ class _SummaryHeader extends StatelessWidget {
 class _SummaryMetric {
   final IconData icon;
   final String label;
-  final String value;
-  final Color color;
+  final int value;
 
   const _SummaryMetric({
     required this.icon,
     required this.label,
     required this.value,
-    required this.color,
   });
 }
 
@@ -364,13 +366,14 @@ class _SummaryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: metric.color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: metric.color.withOpacity(0.28)),
+        color: cs.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outline.withOpacity(0.45)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -378,12 +381,12 @@ class _SummaryPill extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(metric.icon, size: 16, color: metric.color),
+              Icon(metric.icon, size: 16, color: cs.primary),
               const SizedBox(width: 6),
               Text(
                 metric.label,
                 style: TextStyle(
-                  color: metric.color,
+                  color: cs.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -391,9 +394,9 @@ class _SummaryPill extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            metric.value,
+            metric.value.toString(),
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
+                  color: cs.onSurface,
                   fontWeight: FontWeight.bold,
                 ),
           ),
@@ -422,18 +425,18 @@ class _GroupCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 2,
+      elevation: 0,
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
-                radius: 28,
-                backgroundColor: cs.primary.withOpacity(0.15),
+                radius: 26,
+                backgroundColor: cs.primary.withOpacity(0.18),
                 child: Text(
                   primary,
                   style: TextStyle(
@@ -464,10 +467,10 @@ class _GroupCard extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: cs.secondary.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(999),
+                              color: cs.secondary.withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                  color: cs.secondary.withOpacity(0.4)),
+                                  color: cs.secondary.withOpacity(0.45)),
                             ),
                             child: Text(
                               "Owner",
@@ -578,7 +581,7 @@ class _AvatarCircle extends StatelessWidget {
     return CircleAvatar(
       radius: 18,
       backgroundColor:
-          Theme.of(context).colorScheme.primary.withOpacity(0.15),
+          Theme.of(context).colorScheme.primary.withOpacity(0.18),
       child: Text(
         initial,
         style: TextStyle(

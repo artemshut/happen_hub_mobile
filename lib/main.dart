@@ -8,7 +8,8 @@ import 'src/theme.dart';
 import 'src/screens/splash_screen.dart';
 import 'src/utils/page_transition.dart';
 import 'src/services/secrets.dart';
-import 'src/providers/user_provider.dart'; // ✅ provider
+import 'src/providers/user_provider.dart';
+import 'src/providers/theme_provider.dart';
 
 // 🔔 Background message handler
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -74,11 +75,15 @@ class _HappenHubAppState extends State<HappenHubApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
-      child: MaterialApp(
-        title: 'HappenHub',
-        theme: AppTheme.light.copyWith(
-          pageTransitionsTheme: PageTransitionsTheme(
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) {
+          if (!themeProvider.isLoaded) {
+            return const SizedBox();
+          }
+
+          final pageTransitions = PageTransitionsTheme(
             builders: {
               TargetPlatform.android: CustomPageTransitionBuilder(),
               TargetPlatform.iOS: CustomPageTransitionBuilder(),
@@ -86,10 +91,21 @@ class _HappenHubAppState extends State<HappenHubApp> {
               TargetPlatform.windows: CustomPageTransitionBuilder(),
               TargetPlatform.linux: CustomPageTransitionBuilder(),
             },
-          ),
-        ),
-        debugShowCheckedModeBanner: false,
-        home: const SplashScreen(), // 👈 still handles auto-login
+          );
+
+          return MaterialApp(
+            title: 'HappenHub',
+            theme: AppTheme.light.copyWith(
+              pageTransitionsTheme: pageTransitions,
+            ),
+            darkTheme: AppTheme.dark.copyWith(
+              pageTransitionsTheme: pageTransitions,
+            ),
+            themeMode: themeProvider.themeMode,
+            debugShowCheckedModeBanner: false,
+            home: const SplashScreen(),
+          );
+        },
       ),
     );
   }

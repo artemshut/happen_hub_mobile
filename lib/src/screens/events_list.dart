@@ -42,9 +42,30 @@ class _EventsListScreenState extends State<EventsListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("All Events"),
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
+        toolbarHeight: 76,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        titleSpacing: 24,
+        title: Text(
+          "All Events",
+          style: Theme.of(context)
+              .textTheme
+              .headlineSmall
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                cs.primary.withOpacity(0.85),
+                const Color(0xFF14121C),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
@@ -56,8 +77,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
           }
         },
         backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
-        icon: const Icon(Icons.add),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
         label: const Text("Create Event"),
       ),
       body: FutureBuilder<List<Event>>(
@@ -199,7 +220,7 @@ class _EventsListScreenState extends State<EventsListScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon, color: color),
@@ -246,8 +267,9 @@ class _EventsListScreenState extends State<EventsListScreen> {
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: cs.surfaceVariant.withOpacity(0.6),
-          borderRadius: BorderRadius.circular(24),
+          color: cs.surfaceVariant,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: cs.outline.withOpacity(0.4)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -301,11 +323,10 @@ class _EventsListScreenState extends State<EventsListScreen> {
             : "Ends ${DateFormat("EEE, d MMM · h:mm a").format(e.endTime!)}")
         : null;
 
-    final borderColor = isOngoing
-        ? cs.secondary
-        : isPast
-            ? cs.outline.withOpacity(0.2)
-            : cs.primary.withOpacity(0.35);
+    final borderColor = cs.outline.withOpacity(isPast ? 0.2 : 0.4);
+    final background = isPast
+        ? cs.surfaceVariant.withOpacity(0.6)
+        : cs.surfaceVariant;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -325,16 +346,9 @@ class _EventsListScreenState extends State<EventsListScreen> {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isPast ? cs.surface : cs.surface.withOpacity(0.95),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: borderColor, width: 1.4),
-            boxShadow: [
-              BoxShadow(
-                color: (isPast ? cs.shadow : cs.primary.withOpacity(0.18)),
-                blurRadius: 18,
-                offset: const Offset(0, 12),
-              ),
-            ],
+            color: background,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: borderColor, width: 1.1),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -490,24 +504,19 @@ class _EventsListScreenState extends State<EventsListScreen> {
     required bool isOngoing,
   }) {
     final cs = Theme.of(context).colorScheme;
-    final bgColor = isPast
-        ? cs.surfaceVariant
-        : isOngoing
-            ? cs.secondary.withOpacity(0.15)
-            : cs.primary.withOpacity(0.15);
-    final borderColor = isOngoing
+    final accent = isOngoing
         ? cs.secondary
         : isPast
-            ? cs.outline.withOpacity(0.5)
+            ? cs.outline.withOpacity(0.6)
             : cs.primary;
 
     return Container(
-      width: 64,
+      width: 60,
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor, width: 1.4),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withOpacity(0.7), width: 1.1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -515,17 +524,17 @@ class _EventsListScreenState extends State<EventsListScreen> {
           Text(
             dateLabel,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: borderColor,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+                  color: accent,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.1,
                 ),
           ),
           const SizedBox(height: 4),
           Text(
             day,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
           ),
         ],
@@ -540,11 +549,11 @@ class _EventsListScreenState extends State<EventsListScreen> {
     Color? textColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(0.6)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -556,6 +565,7 @@ class _EventsListScreenState extends State<EventsListScreen> {
             style: TextStyle(
               color: textColor ?? color,
               fontWeight: FontWeight.w600,
+              fontSize: 12,
             ),
           ),
         ],
@@ -569,18 +579,24 @@ class _EventsListScreenState extends State<EventsListScreen> {
     required Color color,
     Color? foreground,
   }) {
-    final textColor = foreground ?? color;
+    final cs = Theme.of(context).colorScheme;
+    final textColor = foreground ?? Colors.white;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: foreground != null ? color : color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(0.4)),
+        color: foreground != null
+            ? color.withOpacity(0.25)
+            : cs.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: (foreground != null ? color : cs.outline)
+              .withOpacity(0.5),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: textColor),
+          Icon(icon, size: 14, color: foreground ?? color),
           const SizedBox(width: 4),
           Text(
             label,
@@ -601,19 +617,19 @@ class _EventsListScreenState extends State<EventsListScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.4)),
+        color: color.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.45)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.handshake_rounded, size: 14, color: color),
+          Icon(Icons.handshake_rounded, size: 14, color: Colors.white),
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
-              color: color,
+            style: const TextStyle(
+              color: Colors.white,
               fontWeight: FontWeight.w600,
               fontSize: 12,
             ),
