@@ -107,80 +107,59 @@ class _EventsListScreenState extends State<EventsListScreen> {
           return RefreshIndicator(
             color: cs.primary,
             onRefresh: _refreshEvents,
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: [
-                const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                if (upcoming.isNotEmpty) ...[
-                  SliverToBoxAdapter(
-                    child: _buildSectionHeader(
-                      context,
-                      title: "Upcoming & ongoing",
-                      highlight: "${upcoming.length} events",
-                      icon: Icons.upcoming_rounded,
-                      color: cs.primary,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                _buildSectionHeader(
+                  context,
+                  title: "Upcoming & ongoing",
+                  highlight: "${upcoming.length} events",
+                  icon: Icons.upcoming_rounded,
+                  color: cs.primary,
+                ),
+                const SizedBox(height: 12),
+                if (upcoming.isEmpty)
+                  _buildEmptySection(
+                    context,
+                    title: "No upcoming events yet",
+                    subtitle:
+                        "Create something new or check out past highlights below.",
+                    icon: Icons.calendar_today_rounded,
+                  )
+                else
+                  ...upcoming.map(
+                    (event) => _buildEventCard(
+                      event,
+                      currentUserId: currentUserId,
+                      isPast: false,
+                      isOngoing: _isEventOngoing(event, now),
                     ),
                   ),
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final event = upcoming[index];
-                        return _buildEventCard(
-                          event,
-                          currentUserId: currentUserId,
-                          isPast: false,
-                          isOngoing: _isEventOngoing(event, now),
-                        );
-                      },
-                      childCount: upcoming.length,
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                ] else
-                  SliverToBoxAdapter(
-                    child: _buildEmptySection(
-                      context,
-                      title: "No upcoming events yet",
-                      subtitle:
-                          "Create something new or check out past highlights below.",
-                      icon: Icons.calendar_today_rounded,
-                    ),
-                  ),
-                if (past.isNotEmpty) ...[
-                  SliverToBoxAdapter(
-                    child: _buildSectionHeader(
-                      context,
-                      title: "Past highlights",
-                      highlight: "${past.length} events",
-                      icon: Icons.history_rounded,
-                      color: cs.secondary,
-                    ),
-                  ),
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final event = past[index];
-                        return _buildEventCard(
-                          event,
-                          currentUserId: currentUserId,
-                          isPast: true,
-                          isOngoing: false,
-                        );
-                      },
-                      childCount: past.length,
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
-                ] else
-                  SliverToBoxAdapter(
-                    child: _buildEmptySection(
-                      context,
-                      title: "No past events yet",
-                      subtitle:
-                          "Once events wrap up they’ll appear here for easy reference.",
-                      icon: Icons.inbox_outlined,
+                const SizedBox(height: 32),
+                _buildSectionHeader(
+                  context,
+                  title: "Past highlights",
+                  highlight: "${past.length} events",
+                  icon: Icons.history_rounded,
+                  color: cs.secondary,
+                ),
+                const SizedBox(height: 12),
+                if (past.isEmpty)
+                  _buildEmptySection(
+                    context,
+                    title: "No past events yet",
+                    subtitle:
+                        "Once events wrap up they’ll appear here for easy reference.",
+                    icon: Icons.inbox_outlined,
+                  )
+                else
+                  ...past.map(
+                    (event) => _buildEventCard(
+                      event,
+                      currentUserId: currentUserId,
+                      isPast: true,
+                      isOngoing: false,
                     ),
                   ),
               ],
