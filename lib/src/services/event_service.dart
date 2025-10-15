@@ -3,6 +3,8 @@ import 'package:flutter/widgets.dart';
 import '../services/api_client.dart';
 import '../services/json_api_parser.dart';
 import '../models/event.dart';
+import 'dart:convert';
+
 class EventRepository {
   final ApiClient _client = ApiClient();
 

@@ -96,6 +96,21 @@ class Event {
         ? descRaw
         : (descRaw is Map<String, dynamic> ? (descRaw['body'] ?? '') : '');
 
+    final embeddedParticipants = (attrs['participants'] as List<dynamic>? ?? const [])
+        .cast<dynamic>();
+    if (embeddedParticipants.isNotEmpty) {
+      for (final entry in embeddedParticipants) {
+        final map = (entry as Map).cast<String, dynamic>();
+        final userId = map['id']?.toString();
+        final exists = participations.any(
+          (p) => (p.userId ?? p.user?.id) == userId,
+        );
+        if (!exists) {
+          participations.add(EventParticipation.fromAttributes(map));
+        }
+      }
+    }
+
     return Event(
       id: json['id'].toString(),
       title: (attrs['title'] ?? '').toString(),

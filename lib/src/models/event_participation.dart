@@ -48,4 +48,31 @@ class EventParticipation {
       userId: resolvedUserId,
     );
   }
+
+  factory EventParticipation.fromAttributes(Map<String, dynamic> attrs) {
+    final userId = attrs['id']?.toString();
+    final status = (attrs['status'] ?? attrs['rsvp_status'] ?? 'pending')
+        .toString()
+        .toLowerCase()
+        .trim();
+
+    final user = User(
+      id: userId ?? '',
+      email: (attrs['email'] ?? '').toString(),
+      firstName: attrs['first_name']?.toString(),
+      lastName: attrs['last_name']?.toString(),
+      username: attrs['username']?.toString(),
+      tag: attrs['tag']?.toString(),
+      avatarUrl: attrs['avatar_url']?.toString(),
+    );
+
+    return EventParticipation(
+      id: (attrs['participation_id'] ?? userId ?? 'embedded').toString(),
+      rsvpStatus: status.isEmpty ? 'pending' : status,
+      user: userId == null && (attrs['email'] ?? '').toString().isEmpty
+          ? null
+          : user,
+      userId: userId,
+    );
+  }
 }
