@@ -1,0 +1,69 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="dropShadow" x="52" y="52" width="920" height="920" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="20" stdDeviation="38" flood-color="#05070F" flood-opacity="0.55"/>
+    </filter>
+    <linearGradient id="bgGradient" x1="232" y1="144" x2="792" y2="880" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#151A2B"/>
+      <stop offset="0.47" stop-color="#242139"/>
+      <stop offset="1" stop-color="#312454"/>
+    </linearGradient>
+    <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 420) rotate(90) scale(420 432)">
+      <stop stop-color="#37406B" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#1B1E30" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ringGradient" x1="512" y1="248" x2="512" y2="780" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#66D7EA" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#7370FF" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="leftH" x1="352" y1="320" x2="508" y2="704" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#65F2E5"/>
+      <stop offset="0.55" stop-color="#5CD8E4"/>
+      <stop offset="1" stop-color="#3DAAD1"/>
+    </linearGradient>
+    <linearGradient id="rightH" x1="548" y1="320" x2="724" y2="704" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A29AFF"/>
+      <stop offset="0.55" stop-color="#8C83FF"/>
+      <stop offset="1" stop-color="#5C5FFF"/>
+    </linearGradient>
+  </defs>
+
+  <g filter="url(#dropShadow)">
+    <rect x="96" y="96" width="832" height="832" rx="204" fill="url(#bgGradient)"/>
+    <rect x="96" y="96" width="832" height="832" rx="204" fill="url(#bgGlow)"/>
+  </g>
+
+  <circle cx="512" cy="512" r="306" stroke="#63C9E0" stroke-opacity="0.18" stroke-width="6"/>
+  <circle cx="512" cy="512" r="264" stroke="url(#ringGradient)" stroke-width="26" stroke-linecap="round" stroke-dasharray="595 125" stroke-opacity="0.86"/>
+
+  <path d="M280 404C360 320 478 276 596 300C676 316 744 352 796 404" stroke="#61CFE0" stroke-width="18" stroke-linecap="round" stroke-opacity="0.28"/>
+  <path d="M296 688C360 744 444 776 530 780C616 784 700 756 760 712" stroke="#7E7BFF" stroke-width="16" stroke-linecap="round" stroke-opacity="0.26"/>
+
+  <!-- Left H -->
+  <g>
+    <rect x="352" y="320" width="60" height="384" rx="28" fill="url(#leftH)"/>
+    <rect x="432" y="320" width="60" height="384" rx="28" fill="url(#leftH)"/>
+    <rect x="368" y="468" width="144" height="52" rx="22" fill="url(#leftH)"/>
+    <rect x="352" y="320" width="60" height="108" rx="28" fill="#FFFFFF" fill-opacity="0.28"/>
+  </g>
+
+  <!-- Right H -->
+  <g>
+    <rect x="548" y="320" width="60" height="384" rx="28" fill="url(#rightH)"/>
+    <rect x="668" y="320" width="60" height="384" rx="28" fill="url(#rightH)"/>
+    <rect x="584" y="468" width="156" height="52" rx="22" fill="url(#rightH)"/>
+    <rect x="548" y="320" width="60" height="108" rx="28" fill="#F2F2FF" fill-opacity="0.25"/>
+  </g>
+
+  <!-- Connector -->
+  <rect x="492" y="552" width="120" height="72" rx="28" fill="#1A273A"/>
+  <rect x="492" y="552" width="120" height="72" rx="28" fill="#75E8EB" fill-opacity="0.18"/>
+
+  <!-- Accent slashes -->
+  <path d="M388 372L442 660" stroke="#98F8F0" stroke-width="10" stroke-linecap="round" stroke-opacity="0.35"/>
+  <path d="M696 364L620 656" stroke="#BBB5FF" stroke-width="10" stroke-linecap="round" stroke-opacity="0.32"/>
+
+  <!-- Accent pulse -->
+  <circle cx="646" cy="646" r="34" fill="#63F1E0" fill-opacity="0.2"/>
+  <circle cx="646" cy="646" r="18" fill="#63F1E0" fill-opacity="0.5"/>
+</svg>

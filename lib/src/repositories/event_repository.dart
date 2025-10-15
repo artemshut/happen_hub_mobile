@@ -16,16 +16,34 @@ class EventRepository {
     final token = await _authService.getToken();
     if (token == null) throw Exception("No token found. Please log in.");
 
-    final res = await _client.get("/events", token: token);
-    print("🔎 [fetchEvents] Status: ${res.statusCode}");
-    print("🔎 [fetchEvents] Body: ${res.body}");
-    if (res.statusCode == 200) {
-      return JsonApiParser.parseEvents(res.body);
-    } else if (res.statusCode == 401) {
+    final upcomingRes = await _client.get("/events", token: token);
+    if (upcomingRes.statusCode == 401) {
       throw Exception("Unauthorized. Please log in again.");
-    } else {
-      throw Exception("Failed to load events (${res.statusCode})");
     }
+    if (upcomingRes.statusCode != 200) {
+      throw Exception("Failed to load events (${upcomingRes.statusCode})");
+    }
+
+    final Map<String, Event> eventsById = {};
+    final upcomingEvents = JsonApiParser.parseEvents(upcomingRes.body);
+    for (final event in upcomingEvents) {
+      eventsById[event.id] = event;
+    }
+
+    final pastRes = await _client.get("/events?past=true", token: token);
+    if (pastRes.statusCode == 401) {
+      throw Exception("Unauthorized. Please log in again.");
+    }
+    if (pastRes.statusCode != 200) {
+      throw Exception("Failed to load past events (${pastRes.statusCode})");
+    }
+
+    final pastEvents = JsonApiParser.parseEvents(pastRes.body);
+    for (final event in pastEvents) {
+      eventsById[event.id] = event;
+    }
+
+    return eventsById.values.toList();
   }
 
   Future<Event> fetchEvent(BuildContext context, String id) async {
