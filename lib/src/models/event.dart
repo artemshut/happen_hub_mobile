@@ -82,7 +82,7 @@ class Event {
     for (final ref in commentRefs) {
       final inc = idx[ref['type']]?[ref['id']];
       if (inc != null) {
-        comments.add(Comment.fromJson(inc));
+        comments.add(Comment.fromJson(inc, included: idx));
       }
     }
 

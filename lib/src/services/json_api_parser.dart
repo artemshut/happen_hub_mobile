@@ -2,6 +2,7 @@
 import 'dart:convert';
 import '../models/event.dart';
 import '../models/event_category.dart';
+import '../models/comment.dart';
 import '../models/group.dart';
 
 class JsonApiParser {
@@ -70,5 +71,38 @@ class JsonApiParser {
     return data
         .map((item) => EventCategory.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  static List<Comment> parseComments(String responseBody) {
+    final Map<String, dynamic> json = jsonDecode(responseBody);
+
+    final Map<String, Map<String, dynamic>> includedByType = {};
+    if (json['included'] != null) {
+      for (var inc in json['included']) {
+        includedByType.putIfAbsent(inc['type'], () => {});
+        includedByType[inc['type']]![inc['id']] = inc;
+      }
+    }
+
+    final dataNode = json['data'];
+    if (dataNode is List) {
+      return dataNode
+          .map(
+            (item) => Comment.fromJson(
+              item as Map<String, dynamic>,
+              included: includedByType,
+            ),
+          )
+          .toList();
+    } else if (dataNode is Map<String, dynamic>) {
+      return [
+        Comment.fromJson(
+          dataNode,
+          included: includedByType,
+        ),
+      ];
+    } else {
+      return const [];
+    }
   }
 }

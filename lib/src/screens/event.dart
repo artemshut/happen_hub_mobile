@@ -11,9 +11,11 @@ import 'package:http/http.dart' as http;
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'edit_event.dart';
 
+import '../models/comment.dart';
 import '../models/event.dart';
 import '../models/event_participation.dart';
 import '../repositories/event_repository.dart';
+import '../repositories/comment_repository.dart';
 import '../utils/rsvp_helper.dart';
 
 class _RsvpOption {
@@ -253,9 +255,16 @@ class EventScreen extends StatefulWidget {
 class _EventScreenState extends State<EventScreen>
     with SingleTickerProviderStateMixin {
   final EventRepository _repo = EventRepository();
+  final CommentRepository _commentRepo = CommentRepository();
+  final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocus = FocusNode();
   late Future<Event> _eventFuture;
   bool _rsvpLoading = false;
   String? _pendingRsvp;
+  bool _loadingComments = false;
+  bool _sendingComment = false;
+  String? _deletingCommentId;
+  List<Comment> _comments = [];
   final ScrollController _scrollController = ScrollController();
 
   YoutubePlayerController? _ytController;
@@ -265,6 +274,8 @@ class _EventScreenState extends State<EventScreen>
   void initState() {
     super.initState();
     _eventFuture = _repo.fetchEvent(context, widget.event.id);
+    _comments = List<Comment>.from(widget.event.comments ?? const []);
+    _loadComments();
 
     _animCtrl = AnimationController(
       vsync: this,
@@ -277,6 +288,8 @@ class _EventScreenState extends State<EventScreen>
     _ytController?.dispose();
     _animCtrl.dispose();
     _scrollController.dispose();
+    _commentController.dispose();
+    _commentFocus.dispose();
     super.dispose();
   }
 
@@ -355,22 +368,52 @@ class _EventScreenState extends State<EventScreen>
     final parts = event.participations;
     if (parts == null) return null;
     for (final p in parts) {
-      if (p.user?.id == widget.currentUserId) return p;
+      if (p.user?.id == widget.currentUserId ||
+          p.userId == widget.currentUserId) {
+        return p;
+      }
     }
     return null;
   }
 
   String? _currentRsvpFor(Event event) {
     final status = _participationFor(event)?.rsvpStatus;
-    if (status == null || status == "pending" || status.isEmpty) return null;
-    return status;
+    if (status == null || status.isEmpty) return null;
+    final normalized = _normalizeStatus(status);
+    if (normalized == null || normalized == 'pending') return null;
+    return normalized;
   }
 
   _RsvpOption? _optionFor(String status) {
+    final normalized = _normalizeStatus(status);
+    if (normalized == null) return null;
     for (final opt in _rsvpOptions) {
-      if (opt.value == status) return opt;
+      if (opt.value == normalized) return opt;
     }
     return null;
+  }
+
+  String? _normalizeStatus(String? raw) {
+    if (raw == null) return null;
+    final value = raw.trim().toLowerCase();
+    switch (value) {
+      case 'accepted':
+      case 'attending':
+      case 'going':
+        return 'accepted';
+      case 'maybe':
+      case 'tentative':
+        return 'maybe';
+      case 'declined':
+      case 'not_going':
+      case 'cant_go':
+        return 'declined';
+      case 'pending':
+      case '':
+        return 'pending';
+      default:
+        return value;
+    }
   }
 
   String _rsvpLabel(String status) {
@@ -523,6 +566,363 @@ class _EventScreenState extends State<EventScreen>
       onLinkTap: (url, _, __) {
         if (url != null) _openLink(url);
       },
+    );
+  }
+
+  Future<void> _loadComments() async {
+    if (!mounted) return;
+    setState(() => _loadingComments = true);
+    try {
+      final fetched = await _commentRepo.fetchComments(widget.event.id);
+      if (!mounted) return;
+      setState(() {
+        _comments = fetched;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to load comments: $e")),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _loadingComments = false);
+      }
+    }
+  }
+
+  Future<void> _sendComment() async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty || _sendingComment) return;
+
+    setState(() => _sendingComment = true);
+    try {
+      final created = await _commentRepo.createComment(widget.event.id, text);
+      if (!mounted) return;
+      setState(() {
+        _comments = [..._comments, created];
+        _commentController.clear();
+      });
+      _commentFocus.unfocus();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to post comment: $e")),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sendingComment = false);
+      }
+    }
+  }
+
+  Future<void> _deleteComment(Comment comment) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) {
+            final cs = Theme.of(ctx).colorScheme;
+            return AlertDialog(
+              title: const Text("Remove comment?"),
+              content: const Text(
+                "This comment will be permanently removed for everyone.",
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text("Cancel"),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: cs.error,
+                    foregroundColor: cs.onError,
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text("Delete"),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!confirmed) return;
+
+    setState(() => _deletingCommentId = comment.id);
+    try {
+      await _commentRepo.deleteComment(widget.event.id, comment.id);
+      if (!mounted) return;
+      setState(() {
+        _comments.removeWhere((c) => c.id == comment.id);
+        _deletingCommentId = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Comment deleted")),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _deletingCommentId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to delete comment: $e")),
+      );
+    }
+  }
+
+  String _displayName(Comment comment) {
+    final user = comment.user;
+    if (user == null) return "Member";
+
+    final fullName = [
+      user.firstName?.trim(),
+      user.lastName?.trim(),
+    ].whereType<String>().where((part) => part.isNotEmpty).join(" ");
+    if (fullName.isNotEmpty) return fullName;
+
+    final username = user.username?.trim();
+    if (username != null && username.isNotEmpty) return username;
+
+    return user.email;
+  }
+
+  String _initialFor(Comment comment) {
+    final user = comment.user;
+    final name = _displayName(comment);
+    if (name.isNotEmpty) return name[0].toUpperCase();
+    if (user != null && user.email.isNotEmpty) {
+      return user.email[0].toUpperCase();
+    }
+    return "?";
+  }
+
+  String _relativeTime(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inSeconds < 45) return "Just now";
+    if (diff.inMinutes < 2) return "1 min ago";
+    if (diff.inMinutes < 60) return "${diff.inMinutes} min ago";
+    if (diff.inHours < 2) return "1 hr ago";
+    if (diff.inHours < 24) return "${diff.inHours} hrs ago";
+    if (diff.inDays < 2) return "Yesterday";
+    if (diff.inDays < 7) return "${diff.inDays} days ago";
+    if (diff.inDays < 30) {
+      final weeks = (diff.inDays / 7).floor();
+      return weeks == 1 ? "1 week ago" : "$weeks weeks ago";
+    }
+    if (diff.inDays < 365) {
+      final months = (diff.inDays / 30).floor();
+      return months == 1 ? "1 month ago" : "$months months ago";
+    }
+    final years = (diff.inDays / 365).floor();
+    return years == 1 ? "1 year ago" : "$years years ago";
+  }
+
+  Widget _buildCommentsSection(
+    BuildContext context,
+    Event event,
+    ColorScheme cs,
+  ) {
+    return _SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(
+            icon: Icons.chat_bubble_rounded,
+            label: "Conversation",
+            color: cs.primary,
+            trailing: _comments.isNotEmpty
+                ? "${_comments.length} ${_comments.length == 1 ? "comment" : "comments"}"
+                : null,
+          ),
+          const SizedBox(height: 16),
+          if (_loadingComments)
+            const Center(child: CircularProgressIndicator())
+          else if (_comments.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                "No comments yet. Be the first to start the conversation.",
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            )
+          else
+            Column(
+              children: _comments
+                  .map((comment) =>
+                      _buildCommentTile(context, comment, event, cs))
+                  .toList(),
+            ),
+          const SizedBox(height: 16),
+          _buildCommentComposer(cs),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommentTile(
+    BuildContext context,
+    Comment comment,
+    Event event,
+    ColorScheme cs,
+  ) {
+    final canDelete = comment.user?.id == widget.currentUserId ||
+        event.user?.id == widget.currentUserId;
+    final timestamp = comment.createdAt != null
+        ? _relativeTime(comment.createdAt!.toLocal())
+        : null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundImage: comment.user?.avatarUrl != null
+                ? NetworkImage(comment.user!.avatarUrl!)
+                : null,
+            backgroundColor: cs.primary.withOpacity(0.12),
+            child: comment.user?.avatarUrl == null
+                ? Text(
+                    _initialFor(comment),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: cs.surface.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: cs.outline.withOpacity(0.08)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _displayName(comment),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: cs.onSurface,
+                                  ),
+                            ),
+                            if (timestamp != null)
+                              Text(
+                                timestamp,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (canDelete)
+                        SizedBox(
+                          height: 32,
+                          width: 32,
+                          child: _deletingCommentId == comment.id
+                              ? const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : IconButton(
+                                  padding: EdgeInsets.zero,
+                                  iconSize: 20,
+                                  splashRadius: 18,
+                                  icon: Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: cs.error,
+                                  ),
+                                  onPressed: () => _deleteComment(comment),
+                                ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    comment.content,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurface,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommentComposer(ColorScheme cs) {
+    final isDisabled = widget.currentUserId.isEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: cs.outline.withOpacity(0.12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _commentController,
+              focusNode: _commentFocus,
+              enabled: !isDisabled,
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _sendComment(),
+              decoration: InputDecoration(
+                hintText: isDisabled
+                    ? "Sign in to join the conversation"
+                    : "Add a comment...",
+                border: InputBorder.none,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 10, bottom: 10),
+            child: _sendingComment
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.4),
+                  )
+                : IconButton(
+                    onPressed: isDisabled ? null : _sendComment,
+                    icon: Icon(
+                      Icons.send_rounded,
+                      color: isDisabled ? cs.onSurfaceVariant : cs.primary,
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -964,6 +1364,9 @@ class _EventScreenState extends State<EventScreen>
                           ],
                         ),
                       ),
+                      const SizedBox(height: 24),
+
+                      _buildCommentsSection(context, e, cs),
                       const SizedBox(height: 24),
 
                       if (participations.isNotEmpty) ...[

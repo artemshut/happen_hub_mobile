@@ -4,11 +4,13 @@ class EventParticipation {
   final String id;
   final String rsvpStatus;
   final User? user;
+  final String? userId;
 
   EventParticipation({
     required this.id,
     required this.rsvpStatus,
     required this.user,
+    this.userId,
   });
 
   factory EventParticipation.fromJson(
@@ -20,9 +22,11 @@ class EventParticipation {
 
     // resolve linked user
     final relUser = json['relationships']?['user']?['data'];
+    String? resolvedUserId;
     if (relUser != null) {
-      final String type = (relUser['type'] ?? 'users').toString(); // "users"
+      final String type = (relUser['type'] ?? 'users').toString();
       final String id = relUser['id'].toString();
+      resolvedUserId = id;
       final incUser = included[type]?[id];
       if (incUser != null) {
         u = User.fromJson({
@@ -32,10 +36,16 @@ class EventParticipation {
       }
     }
 
+    final status = (attrs['rsvp_status'] ?? 'pending')
+        .toString()
+        .toLowerCase()
+        .trim();
+
     return EventParticipation(
       id: json['id'].toString(),
-      rsvpStatus: (attrs['rsvp_status'] ?? 'pending').toString(),
+      rsvpStatus: status.isEmpty ? 'pending' : status,
       user: u,
+      userId: resolvedUserId,
     );
   }
 }
