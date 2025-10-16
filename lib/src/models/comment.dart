@@ -28,6 +28,9 @@ class Comment {
       }
     } else if (json['user'] != null) {
       u = User.fromJson(json['user']);
+    } else if (attrs['user'] != null) {
+      final map = (attrs['user'] as Map).cast<String, dynamic>();
+      u = User.fromJson(map);
     }
 
     final createdAtStr = attrs['created_at']?.toString();
