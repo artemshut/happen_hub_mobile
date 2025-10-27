@@ -20,7 +20,6 @@ class EventParticipation {
     final attrs = (json['attributes'] ?? const {}) as Map<String, dynamic>;
     User? u;
 
-    // resolve linked user
     final relUser = json['relationships']?['user']?['data'];
     String? resolvedUserId;
     if (relUser != null) {
@@ -34,6 +33,8 @@ class EventParticipation {
           'attributes': incUser['attributes'],
         });
       }
+    } else {
+      print(' No relationships.user.data found');
     }
 
     final status = (attrs['rsvp_status'] ?? 'pending')
@@ -50,11 +51,13 @@ class EventParticipation {
   }
 
   factory EventParticipation.fromAttributes(Map<String, dynamic> attrs) {
+    print('EventParticipation.fromAttributes called -> attrs keys=${attrs.keys}');
     final userId = attrs['id']?.toString();
     final status = (attrs['status'] ?? attrs['rsvp_status'] ?? 'pending')
         .toString()
         .toLowerCase()
         .trim();
+    print(' Derived rsvp_status from attributes: "$status" for userId=$userId');
 
     final user = User(
       id: userId ?? '',

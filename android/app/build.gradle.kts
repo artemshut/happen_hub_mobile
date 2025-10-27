@@ -25,12 +25,39 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        ndk {
+            // Only ship ARM builds to cut native binary size.
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
+    bundle {
+        // Split APKs by ABI/density so Play delivers smaller downloads.
+        abi { enableSplit = true }
+        density { enableSplit = true }
+        language { enableSplit = false }
     }
 
     buildTypes {
         release {
             // TODO: replace with real signing config later
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE*",
+                "META-INF/README*"
+            )
         }
     }
 }
