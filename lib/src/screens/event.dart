@@ -364,6 +364,489 @@ class _EventScreenState extends State<EventScreen>
     return null;
   }
 
+  Widget _buildOverviewTab({
+    required BuildContext context,
+    required Event event,
+    required ColorScheme colorScheme,
+    required String? hostName,
+    required String? hostInitial,
+    required String? hostTag,
+    required String? categoryLabel,
+    required bool hasCategory,
+    required String? visibilityLabel,
+    required bool hasVisibility,
+  }) {
+    final cs = colorScheme;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(
+                icon: Icons.info_outline_rounded,
+                label: "Event details",
+                color: cs.primary,
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _InfoBadge(
+                    icon: Icons.event_available_rounded,
+                    label: event.endTime != null
+                        ? "${_formatDate(event.startTime)} → ${_formatDate(event.endTime)}"
+                        : _formatDate(event.startTime),
+                    color: cs.primary,
+                  ),
+                  if ((event.location ?? "").isNotEmpty)
+                    _InfoBadge(
+                      icon: Icons.place_outlined,
+                      label: event.location!,
+                      color: Colors.indigoAccent,
+                      onTap: () => _openMaps(event.location!),
+                    ),
+                  if (hasCategory)
+                    _InfoBadge(
+                      icon: Icons.sell_rounded,
+                      label: categoryLabel!.trim(),
+                      color: cs.secondary,
+                    ),
+                  if (hasVisibility)
+                    _InfoBadge(
+                      icon: Icons.lock_open_rounded,
+                      label: visibilityLabel!
+                          .trim()
+                          .replaceFirstMapped(
+                            RegExp(r'^[a-z]'),
+                            (m) => m.group(0)!.toUpperCase(),
+                          ),
+                      color: cs.tertiary,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        if (event.user != null)
+          _SurfaceCard(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                cs.primaryContainer.withOpacity(0.95),
+                cs.secondaryContainer.withOpacity(0.85),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 34,
+                  backgroundImage: event.user!.avatarUrl != null &&
+                          event.user!.avatarUrl!.isNotEmpty
+                      ? NetworkImage(event.user!.avatarUrl!)
+                      : null,
+                  backgroundColor: Colors.white24,
+                  child: event.user!.avatarUrl == null
+                      ? Text(
+                          hostInitial ?? '?',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hostName ?? 'Host',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.onPrimaryContainer,
+                            ),
+                      ),
+                      if (hostTag != null)
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.alternate_email,
+                              size: 16,
+                              color: cs.onPrimaryContainer.withOpacity(0.7),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              hostTag,
+                              style: TextStyle(
+                                color: cs.onPrimaryContainer.withOpacity(0.7),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "Event host",
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(
+                              color: cs.onPrimaryContainer.withOpacity(0.7),
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.email_outlined),
+                  onPressed: () => _contactHost(event.user!.email),
+                ),
+              ],
+            ),
+          ),
+        if (event.user != null) const SizedBox(height: 18),
+        _SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(
+                icon: Icons.subject_rounded,
+                label: "About this event",
+                color: cs.secondary,
+              ),
+              const SizedBox(height: 18),
+              _maybeRenderYouTube(event.description),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        _SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(
+                icon: Icons.forum_rounded,
+                label: "Conversation",
+                color: cs.primary,
+                trailing: event.comments?.isNotEmpty == true
+                    ? "${event.comments!.length} ${event.comments!.length == 1 ? 'message' : 'messages'}"
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () => _openComments(event),
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+                label: const Text("Open chat"),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGuestsTab({
+    required BuildContext context,
+    required Event event,
+    required ColorScheme colorScheme,
+    required List<EventParticipation> participations,
+    required List<EventParticipation> displayParticipations,
+    required int remainingCount,
+    required String? selectedStatus,
+    required _RsvpOption? summaryOption,
+  }) {
+    final cs = colorScheme;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(
+                icon: Icons.how_to_vote_rounded,
+                label: "Your RSVP",
+                color: cs.primary,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Let others know if they can count on you.",
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: _rsvpOptions
+                    .map(
+                      (opt) => SizedBox(
+                        width: 96,
+                        child: _buildRsvpChoice(
+                          context,
+                          event,
+                          opt,
+                          selectedStatus,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: summaryOption != null
+                    ? Row(
+                        key: ValueKey(summaryOption.value),
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            summaryOption.icon,
+                            size: 18,
+                            color: summaryOption.color,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Marked as ${summaryOption.label}",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: summaryOption.color,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        key: const ValueKey("no-response"),
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.hourglass_bottom_rounded,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "No response yet",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        if (participations.isNotEmpty)
+          _SurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionTitle(
+                  icon: Icons.people_alt_rounded,
+                  label: "Guests",
+                  color: cs.secondary,
+                  trailing: participations.length > 8
+                      ? "+$remainingCount more"
+                      : "${participations.length} attending",
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 64,
+                  child: Stack(
+                    children: [
+                      for (int i = 0; i < displayParticipations.length; i++)
+                        Positioned(
+                          left: i * 40.0,
+                          child: Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 28,
+                                backgroundImage:
+                                    displayParticipations[i].user?.avatarUrl !=
+                                            null
+                                        ? NetworkImage(displayParticipations[i]
+                                            .user!
+                                            .avatarUrl!)
+                                        : null,
+                                backgroundColor: Colors.grey.shade300,
+                                child: displayParticipations[i]
+                                            .user
+                                            ?.avatarUrl ==
+                                        null
+                                    ? Text(
+                                        (displayParticipations[i]
+                                                    .user
+                                                    ?.username ??
+                                                displayParticipations[i]
+                                                    .user
+                                                    ?.email ??
+                                                "?")[0]
+                                            .toUpperCase(),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              Positioned(
+                                bottom: 2,
+                                right: 2,
+                                child: Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: rsvpColor(
+                                      displayParticipations[i].rsvpStatus,
+                                    ),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                "Be the first to RSVP",
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMediaTab({
+    required BuildContext context,
+    required Event event,
+    required ColorScheme colorScheme,
+  }) {
+    final cs = colorScheme;
+    final files = event.files ?? const [];
+    if (files.isEmpty) {
+      return Center(
+        child: Text(
+          "No shared media yet",
+          style: Theme.of(context)
+              .textTheme
+              .bodyMedium
+              ?.copyWith(color: cs.onSurfaceVariant),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(
+                icon: Icons.attach_file_rounded,
+                label: "Media & files",
+                color: cs.primary,
+                trailing: "${files.length} item${files.length > 1 ? 's' : ''}",
+              ),
+              const SizedBox(height: 16),
+              ...List.generate(files.length, (index) {
+                final f = files[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == files.length - 1 ? 0 : 12,
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () {
+                      if (f.isImage) {
+                        _openImage(f.url);
+                      } else if (f.isPdf) {
+                        _openPdf(f.url);
+                      } else {
+                        _openExternal(f.url);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.surface.withOpacity(0.55),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: cs.outline.withOpacity(0.12),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            f.isImage
+                                ? Icons.image_rounded
+                                : f.isPdf
+                                    ? Icons.picture_as_pdf
+                                    : Icons.insert_drive_file,
+                            color: f.isPdf ? Colors.redAccent : cs.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              f.filename,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Icon(
+                            Icons.open_in_new_rounded,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   String? _currentRsvpFor(Event event) {
     final status = _participationFor(event)?.rsvpStatus;
     if (status == null || status.isEmpty) return null;
@@ -626,679 +1109,152 @@ class _EventScreenState extends State<EventScreen>
               ? e.user!.tag!.trim()
               : null;
 
-          return CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 260,
-                pinned: true,
-                leading: CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.black.withOpacity(0.6),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-                actions: [
-                  if (e.user?.id == widget.currentUserId)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: CircleAvatar(
-                        radius: 22,
-                        backgroundColor: Colors.black.withOpacity(0.6),
-                        child: IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.white),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => EditEventScreen(
-                                  event: e,
-                                  currentUserId: widget.currentUserId,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+          return DefaultTabController(
+            length: 3,
+            child: NestedScrollView(
+              controller: _scrollController,
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  SliverAppBar(
+                    expandedHeight: 260,
+                    pinned: true,
+                    leading: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: Colors.black.withOpacity(0.6),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
                       ),
                     ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  title: Text(
-                    e.title,
-                    style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                      color: Colors.white,
-                    ),
-                  ),
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (e.coverImageUrl != null)
-                        Image.network(e.coverImageUrl!, fit: BoxFit.cover),
-                      Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Colors.black54],
+                    actions: [
+                      if (e.user?.id == widget.currentUserId)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: CircleAvatar(
+                            radius: 22,
+                            backgroundColor: Colors.black.withOpacity(0.6),
+                            child: IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.white),
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => EditEventScreen(
+                                      event: e,
+                                      currentUserId: widget.currentUserId,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        bottom: 24,
-                        left: 16,
-                        right: 16,
-                        child: Wrap(
-                          spacing: 10,
-                          runSpacing: 8,
-                          children: [
-                            if (hasCategory)
-                              _HeroTagChip(
-                                icon: Icons.sell,
-                                label: categoryLabel!.trim(),
-                              ),
-                            if (hasVisibility)
-                              _HeroTagChip(
-                                icon: Icons.lock_open_rounded,
-                                label: visibilityLabel!
-                                    .trim()
-                                    .replaceFirstMapped(
-                                      RegExp(r'^[a-z]'),
-                                      (m) => m.group(0)!.toUpperCase(),
-                                    ),
-                              ),
+                    ],
+                    bottom: PreferredSize(
+                      preferredSize: const Size.fromHeight(48),
+                      child: Container(
+                        color: cs.surface,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: TabBar(
+                          indicatorColor: cs.primary,
+                          labelColor: cs.onSurface,
+                          unselectedLabelColor: cs.onSurfaceVariant,
+                          tabs: const [
+                            Tab(text: 'Overview'),
+                            Tab(text: 'Guests'),
+                            Tab(text: 'Media'),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // --- Main Content ---
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SurfaceCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _SectionTitle(
-                              icon: Icons.info_outline_rounded,
-                              label: "Event details",
-                              color: cs.primary,
-                              trailing: participations.isNotEmpty
-                                  ? "${participations.length} attending"
-                                  : null,
+                    ),
+                    flexibleSpace: FlexibleSpaceBar(
+                      title: Text(
+                        e.title,
+                        style: GoogleFonts.montserrat(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                      background: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (e.coverImageUrl != null)
+                            Image.network(e.coverImageUrl!, fit: BoxFit.cover),
+                          Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Colors.transparent, Colors.black54],
+                              ),
                             ),
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
+                          ),
+                          Positioned(
+                            bottom: 24,
+                            left: 16,
+                            right: 16,
+                            child: Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
                               children: [
-                                _InfoBadge(
-                                  icon: Icons.event_available_rounded,
-                                  label: e.endTime != null
-                                      ? "${_formatDate(e.startTime)} → ${_formatDate(e.endTime)}"
-                                      : _formatDate(e.startTime),
-                                  color: cs.primary,
-                                ),
-                                if ((e.location ?? "").isNotEmpty)
-                                  _InfoBadge(
-                                    icon: Icons.place_outlined,
-                                    label: e.location!,
-                                    color: Colors.indigoAccent,
-                                    onTap: () => _openMaps(e.location!),
-                                  ),
                                 if (hasCategory)
-                                  _InfoBadge(
-                                    icon: Icons.sell_rounded,
+                                  _HeroTagChip(
+                                    icon: Icons.sell,
                                     label: categoryLabel!.trim(),
-                                    color: cs.secondary,
                                   ),
                                 if (hasVisibility)
-                                  _InfoBadge(
+                                  _HeroTagChip(
                                     icon: Icons.lock_open_rounded,
                                     label: visibilityLabel!
                                         .trim()
                                         .replaceFirstMapped(
-                                      RegExp(r'^[a-z]'),
-                                      (m) => m.group(0)!.toUpperCase(),
-                                    ),
-                                    color: cs.tertiary,
+                                          RegExp(r'^[a-z]'),
+                                          (m) => m.group(0)!.toUpperCase(),
+                                        ),
                                   ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 18),
-
-                      if (e.user != null)
-                        _SurfaceCard(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              cs.primaryContainer.withOpacity(0.95),
-                              cs.secondaryContainer.withOpacity(0.85),
-                            ],
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              CircleAvatar(
-                                radius: 34,
-                                backgroundImage: e.user!.avatarUrl != null &&
-                                        e.user!.avatarUrl!.isNotEmpty
-                                    ? NetworkImage(e.user!.avatarUrl!)
-                                    : null,
-                                backgroundColor:
-                                    Colors.white.withOpacity(0.25),
-                                child: (e.user!.avatarUrl ?? "").isEmpty
-                                    ? Text(
-                                        hostInitial ?? "?",
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              const SizedBox(width: 18),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      hostName ?? e.user!.email,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            color: cs.onPrimaryContainer
-                                                .withOpacity(0.9),
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      e.user!.email,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            color: cs.onPrimaryContainer
-                                                .withOpacity(0.8),
-                                          ),
-                                    ),
-                                    if (hostTag != null)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(top: 6.0),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.2),
-                                            borderRadius:
-                                                BorderRadius.circular(999),
-                                          ),
-                                          child: Text(
-                                            hostTag,
-                                            style: TextStyle(
-                                              color: cs.onPrimaryContainer,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              if (e.user!.email.isNotEmpty)
-                                FilledButton.tonalIcon(
-                                  onPressed: () => _contactHost(e.user!.email),
-                                  icon: const Icon(Icons.email_rounded),
-                                  label: const Text("Contact host"),
-                                  style: FilledButton.styleFrom(
-                                    foregroundColor:
-                                        cs.onPrimaryContainer.withOpacity(0.9),
-                                    backgroundColor:
-                                        Colors.white.withOpacity(0.25),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      if (e.user != null) const SizedBox(height: 18),
-
-                      ScaleTransition(
-                        scale: CurvedAnimation(
-                          parent: _animCtrl,
-                          curve: Curves.elasticOut,
-                        ),
-                        child: _SurfaceCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _SectionTitle(
-                                icon: Icons.handshake_rounded,
-                                label: "Your RSVP",
-                                color: cs.primary,
-                                trailing: summaryOption?.label,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                summaryOption != null
-                                    ? "Thanks for keeping everyone in the loop."
-                                    : "Let others know if they can count on you.",
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: _rsvpOptions
-                                    .map(
-                                      (opt) => Expanded(
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                          ),
-                                          child: _buildRsvpChoice(
-                                            context,
-                                            e,
-                                            opt,
-                                            selectedStatus,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                              const SizedBox(height: 16),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 200),
-                                child: _rsvpLoading
-                                    ? Row(
-                                        key: const ValueKey("loader"),
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          SizedBox(
-                                            width: 22,
-                                            height: 22,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.6,
-                                              color: summaryOption?.color ??
-                                                  cs.primary,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    : summaryOption != null
-                                        ? Row(
-                                            key: ValueKey(
-                                                summaryOption.value),
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                summaryOption.icon,
-                                                size: 18,
-                                                color: summaryOption.color,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                "Marked as ${summaryOption.label}",
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  color: summaryOption.color,
-                                                ),
-                                              ),
-                                            ],
-                                          )
-                                        : Row(
-                                            key: const ValueKey(
-                                                "no-response"),
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.hourglass_bottom_rounded,
-                                                size: 18,
-                                                color: cs.onSurfaceVariant,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                "No response yet",
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  color: cs.onSurfaceVariant,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      _SurfaceCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _SectionTitle(
-                              icon: Icons.subject_rounded,
-                              label: "About this event",
-                              color: cs.secondary,
-                            ),
-                            const SizedBox(height: 18),
-                            _maybeRenderYouTube(e.description),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      _SurfaceCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _SectionTitle(
-                              icon: Icons.chat_bubble_outline_rounded,
-                              label: "Conversation",
-                              color: cs.primary,
-                              trailing: e.comments?.isNotEmpty == true
-                                  ? "${e.comments!.length} ${e.comments!.length == 1 ? "message" : "messages"}"
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            InkWell(
-                              borderRadius: BorderRadius.circular(18),
-                              onTap: () => _openComments(e),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: cs.surface.withOpacity(0.6),
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                    color: cs.outline.withOpacity(0.12),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: cs.primary.withOpacity(0.12),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.message_rounded,
-                                        color: cs.primary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            "Open chat",
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyLarge
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w700,
-                                                  color: cs.onSurface,
-                                                ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            "Catch up with everyone attending.",
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  color: cs.onSurfaceVariant,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      if (participations.isNotEmpty) ...[
-                        _SurfaceCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _SectionTitle(
-                                icon: Icons.people_alt_rounded,
-                                label: "Participants",
-                                color: cs.secondary,
-                                trailing: participations.length > 8
-                                    ? "+$remainingCount more"
-                                    : "${participations.length} attending",
-                              ),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                height: 64,
-                                child: Stack(
-                                  children: [
-                                    for (int i = 0;
-                                        i < displayParticipations.length;
-                                        i++)
-                                      Positioned(
-                                        left: i * 40.0,
-                                        child: Stack(
-                                          children: [
-                                            CircleAvatar(
-                                              radius: 28,
-                                              backgroundImage:
-                                                  displayParticipations[i]
-                                                              .user
-                                                              ?.avatarUrl !=
-                                                          null
-                                                      ? NetworkImage(
-                                                          displayParticipations[
-                                                                  i]
-                                                              .user!
-                                                              .avatarUrl!)
-                                                      : null,
-                                              backgroundColor:
-                                                  Colors.grey.shade300,
-                                              child: displayParticipations[i]
-                                                          .user
-                                                          ?.avatarUrl ==
-                                                      null
-                                                  ? Text(
-                                                      (displayParticipations[i]
-                                                                  .user
-                                                                  ?.username ??
-                                                              displayParticipations[
-                                                                      i]
-                                                                  .user
-                                                                  ?.email ??
-                                                              "?")[0]
-                                                          .toUpperCase(),
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    )
-                                                  : null,
-                                            ),
-                                            Positioned(
-                                              bottom: 2,
-                                              right: 2,
-                                              child: Container(
-                                                width: 14,
-                                                height: 14,
-                                                decoration: BoxDecoration(
-                                                  color: rsvpColor(
-                                                    displayParticipations[i]
-                                                        .rsvpStatus,
-                                                  ),
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(
-                                                    color: Colors.white,
-                                                    width: 2,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    if (remainingCount > 0)
-                                      Positioned(
-                                        left:
-                                            displayParticipations.length * 40.0,
-                                        child: CircleAvatar(
-                                          radius: 28,
-                                          backgroundColor: cs.primary,
-                                          child: Text(
-                                            "+$remainingCount",
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-
-                      if (e.files != null && e.files!.isNotEmpty) ...[
-                        _SurfaceCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _SectionTitle(
-                                icon: Icons.attach_file_rounded,
-                                label: "Attachments",
-                                color: cs.primary,
-                                trailing:
-                                    "${e.files!.length} file${e.files!.length > 1 ? 's' : ''}",
-                              ),
-                              const SizedBox(height: 16),
-                              ...List.generate(e.files!.length, (index) {
-                                final f = e.files![index];
-                                return Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom:
-                                        index == e.files!.length - 1 ? 0 : 12,
-                                  ),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(18),
-                                    onTap: () {
-                                      if (f.isImage) {
-                                        _openImage(f.url);
-                                      } else if (f.isPdf) {
-                                        _openPdf(f.url);
-                                      } else {
-                                        _openExternal(f.url);
-                                      }
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            cs.surface.withOpacity(0.55),
-                                        borderRadius:
-                                            BorderRadius.circular(18),
-                                        border: Border.all(
-                                          color:
-                                              cs.outline.withOpacity(0.12),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            f.isImage
-                                                ? Icons.image_rounded
-                                                : f.isPdf
-                                                    ? Icons.picture_as_pdf
-                                                    : Icons.insert_drive_file,
-                                            color: f.isPdf
-                                                ? Colors.redAccent
-                                                : cs.primary,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Text(
-                                              f.filename,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium
-                                                  ?.copyWith(
-                                                    fontWeight:
-                                                        FontWeight.w600,
-                                                  ),
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.open_in_new_rounded,
-                                            size: 18,
-                                            color: cs.onSurfaceVariant,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-
-                    ],
+                    ),
                   ),
-                ),
+                ];
+              },
+              body: TabBarView(
+                physics: const ClampingScrollPhysics(),
+                children: [
+                  _buildOverviewTab(
+                    context: context,
+                    event: e,
+                    colorScheme: cs,
+                    hostName: hostName,
+                    hostInitial: hostInitial,
+                    hostTag: hostTag,
+                    categoryLabel: categoryLabel,
+                    hasCategory: hasCategory,
+                    visibilityLabel: visibilityLabel,
+                    hasVisibility: hasVisibility,
+                  ),
+                  _buildGuestsTab(
+                    context: context,
+                    event: e,
+                    colorScheme: cs,
+                    participations: participations,
+                    displayParticipations: displayParticipations,
+                    remainingCount: remainingCount,
+                    selectedStatus: selectedStatus,
+                    summaryOption: summaryOption,
+                  ),
+                  _buildMediaTab(
+                    context: context,
+                    event: e,
+                    colorScheme: cs,
+                  ),
+                ],
               ),
-            ],
-          );
-        },
+            ),
+          );        },
       ),
     );
   }
