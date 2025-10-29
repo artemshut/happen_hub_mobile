@@ -5,6 +5,7 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_iframe/flutter_html_iframe.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
@@ -98,10 +99,7 @@ class _HeroTagChip extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _HeroTagChip({
-    required this.icon,
-    required this.label,
-  });
+  const _HeroTagChip({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -161,10 +159,7 @@ class _InfoBadge extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w600, color: color),
           ),
         ),
       ],
@@ -215,7 +210,8 @@ class _SurfaceCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: cs.outline.withOpacity(0.12)),
-        gradient: gradient ??
+        gradient:
+            gradient ??
             LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -233,6 +229,76 @@ class _SurfaceCard extends StatelessWidget {
         ],
       ),
       child: child,
+    );
+  }
+}
+
+class _MediaTile extends StatelessWidget {
+  final EventFile file;
+  final ColorScheme colorScheme;
+  final VoidCallback onOpen;
+  final VoidCallback? onDelete;
+
+  const _MediaTile({
+    required this.file,
+    required this.colorScheme,
+    required this.onOpen,
+    this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = colorScheme;
+    final isPdf = file.isPdf;
+    final isImage = file.isImage;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onOpen,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: cs.surface.withOpacity(0.55),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: cs.outline.withOpacity(0.12)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isImage
+                    ? Icons.image_rounded
+                    : isPdf
+                    ? Icons.picture_as_pdf
+                    : Icons.insert_drive_file,
+                color: isPdf ? Colors.redAccent : cs.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  file.filename,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                color: cs.onSurfaceVariant,
+                onPressed: onOpen,
+              ),
+              if (onDelete != null)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  color: cs.error,
+                  onPressed: onDelete,
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -258,6 +324,7 @@ class _EventScreenState extends State<EventScreen>
   bool _rsvpLoading = false;
   String? _pendingRsvp;
   final ScrollController _scrollController = ScrollController();
+  bool _uploadingMedia = false;
 
   YoutubePlayerController? _ytController;
   late AnimationController _animCtrl;
@@ -295,8 +362,9 @@ class _EventScreenState extends State<EventScreen>
 
   Future<void> _openMaps(String location) async {
     final query = Uri.encodeComponent(location);
-    final uri =
-        Uri.parse("https://www.google.com/maps/search/?api=1&query=$query");
+    final uri = Uri.parse(
+      "https://www.google.com/maps/search/?api=1&query=$query",
+    );
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -344,7 +412,7 @@ class _EventScreenState extends State<EventScreen>
       scheme: "mailto",
       path: email,
       queryParameters: {
-        "subject": "Hi! I'm interested in ${widget.event.title}"
+        "subject": "Hi! I'm interested in ${widget.event.title}",
       },
     );
     if (await canLaunchUrl(uri)) {
@@ -364,6 +432,162 @@ class _EventScreenState extends State<EventScreen>
     return null;
   }
 
+  bool _canUploadMedia(Event event) {
+    final visibility = event.visibility?.toLowerCase();
+    final restricted = visibility == 'private' || visibility == 'friends';
+    if (!restricted) return false;
+
+    if (event.user?.id == widget.currentUserId) return true;
+
+    final status = _normalizeStatus(_participationFor(event)?.rsvpStatus);
+    return status == 'accepted';
+  }
+
+  Future<void> _pickAndUploadMedia(Event event) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+      if (result == null || result.files.isEmpty) return;
+
+      final files = <File>[];
+      for (final file in result.files) {
+        if (file.path != null) {
+          files.add(File(file.path!));
+        } else if (file.bytes != null) {
+          final tempDir = await getTemporaryDirectory();
+          final tempFile = File("${tempDir.path}/${file.name}");
+          await tempFile.writeAsBytes(file.bytes!);
+          files.add(tempFile);
+        }
+      }
+      if (files.isEmpty) return;
+
+      setState(() => _uploadingMedia = true);
+      final updated = await _repo.uploadEventFiles(
+        eventId: event.id,
+        files: files,
+      );
+      if (!mounted) return;
+      setState(() {
+        _eventFuture = Future.value(updated);
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Files uploaded")));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Upload failed: \$e")));
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingMedia = false);
+      }
+    }
+  }
+
+  Future<void> _deleteMediaFile(Event event, String signedId) async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Remove file?"),
+            content: const Text("This attachment will disappear for everyone."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text("Cancel"),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(ctx).colorScheme.error,
+                  foregroundColor: Theme.of(ctx).colorScheme.onError,
+                ),
+                child: const Text("Delete"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed) return;
+
+    try {
+      setState(() => _uploadingMedia = true);
+      final updated = await _repo.deleteEventFile(
+        eventId: event.id,
+        signedId: signedId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _eventFuture = Future.value(updated);
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("File removed")));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Failed to remove: \$e")));
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingMedia = false);
+      }
+    }
+  }
+
+  Widget _buildRsvpSection({
+    required BuildContext context,
+    required Event event,
+    required ColorScheme colorScheme,
+    required String? selectedStatus,
+    required _RsvpOption? summaryOption,
+  }) {
+    final cs = colorScheme;
+
+    return _SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(
+            icon: Icons.emoji_people_rounded,
+            label: "RSVP",
+            color: cs.primary,
+            trailing:
+                summaryOption?.label ??
+                (selectedStatus != null ? _rsvpLabel(selectedStatus) : null),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              for (var i = 0; i < _rsvpOptions.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                Expanded(
+                  child: _buildRsvpChoice(
+                    context,
+                    event,
+                    _rsvpOptions[i],
+                    selectedStatus,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_rsvpLoading) const LinearProgressIndicator(minHeight: 3),
+          if (_rsvpLoading) const SizedBox(height: 12),
+          Text(
+            "Tap an option to update your RSVP instantly.",
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOverviewTab({
     required BuildContext context,
     required Event event,
@@ -377,181 +601,176 @@ class _EventScreenState extends State<EventScreen>
     required bool hasVisibility,
   }) {
     final cs = colorScheme;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _SurfaceCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SectionTitle(
-                icon: Icons.info_outline_rounded,
-                label: "Event details",
-                color: cs.primary,
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
+    final location = event.location?.trim();
+    final hostEmail = event.user?.email ?? '';
+    final hostAvatar = event.user?.avatarUrl?.trim();
+    final hostDisplay = hostName ?? (hostEmail.isNotEmpty ? hostEmail : null);
+    final description = event.description.trim();
+    final commentsCount = event.comments?.length ?? 0;
+
+    Widget hostSection() {
+      if (event.user == null || hostDisplay == null) {
+        return const SizedBox.shrink();
+      }
+      return _SurfaceCard(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: cs.primary.withOpacity(0.18),
+              backgroundImage: hostAvatar != null && hostAvatar.isNotEmpty
+                  ? NetworkImage(hostAvatar)
+                  : null,
+              child: (hostAvatar == null || hostAvatar.isEmpty)
+                  ? Text(
+                      (hostInitial ?? "?"),
+                      style: TextStyle(
+                        color: cs.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _InfoBadge(
-                    icon: Icons.event_available_rounded,
-                    label: event.endTime != null
-                        ? "${_formatDate(event.startTime)} → ${_formatDate(event.endTime)}"
-                        : _formatDate(event.startTime),
-                    color: cs.primary,
+                  Text(
+                    hostDisplay,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  if ((event.location ?? "").isNotEmpty)
-                    _InfoBadge(
-                      icon: Icons.place_outlined,
-                      label: event.location!,
-                      color: Colors.indigoAccent,
-                      onTap: () => _openMaps(event.location!),
+                  if (hostTag != null && hostTag.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        "@${hostTag.trim()}",
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
                     ),
-                  if (hasCategory)
-                    _InfoBadge(
-                      icon: Icons.sell_rounded,
-                      label: categoryLabel!.trim(),
-                      color: cs.secondary,
-                    ),
-                  if (hasVisibility)
-                    _InfoBadge(
-                      icon: Icons.lock_open_rounded,
-                      label: visibilityLabel!
-                          .trim()
-                          .replaceFirstMapped(
-                            RegExp(r'^[a-z]'),
-                            (m) => m.group(0)!.toUpperCase(),
-                          ),
-                      color: cs.tertiary,
+                  if (hostEmail.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: FilledButton.tonalIcon(
+                        onPressed: () => _contactHost(hostEmail),
+                        icon: const Icon(Icons.email_outlined),
+                        label: const Text("Contact host"),
+                      ),
                     ),
                 ],
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
-        if (event.user != null)
-          _SurfaceCard(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                cs.primaryContainer.withOpacity(0.95),
-                cs.secondaryContainer.withOpacity(0.85),
-              ],
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+          ],
+        ),
+      );
+    }
+
+    final children = <Widget>[
+      _SurfaceCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionTitle(
+              icon: Icons.event,
+              label: "Details",
+              color: cs.secondary,
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
               children: [
-                CircleAvatar(
-                  radius: 34,
-                  backgroundImage: event.user!.avatarUrl != null &&
-                          event.user!.avatarUrl!.isNotEmpty
-                      ? NetworkImage(event.user!.avatarUrl!)
-                      : null,
-                  backgroundColor: Colors.white24,
-                  child: event.user!.avatarUrl == null
-                      ? Text(
-                          hostInitial ?? '?',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
+                _InfoBadge(
+                  icon: Icons.schedule_rounded,
+                  label: "Starts ${_formatDate(event.startTime)}",
+                  color: cs.primary,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        hostName ?? 'Host',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: cs.onPrimaryContainer,
-                            ),
-                      ),
-                      if (hostTag != null)
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.alternate_email,
-                              size: 16,
-                              color: cs.onPrimaryContainer.withOpacity(0.7),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              hostTag,
-                              style: TextStyle(
-                                color: cs.onPrimaryContainer.withOpacity(0.7),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      const SizedBox(height: 6),
-                      Text(
-                        "Event host",
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                              color: cs.onPrimaryContainer.withOpacity(0.7),
-                            ),
-                      ),
-                    ],
+                if (event.endTime != null)
+                  _InfoBadge(
+                    icon: Icons.hourglass_bottom_rounded,
+                    label: "Ends ${_formatDate(event.endTime)}",
+                    color: cs.tertiary,
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.email_outlined),
-                  onPressed: () => _contactHost(event.user!.email),
-                ),
+                if (location != null && location.isNotEmpty)
+                  _InfoBadge(
+                    icon: Icons.location_on_rounded,
+                    label: location,
+                    color: cs.error,
+                    onTap: () => _openMaps(location),
+                  ),
+                if (hasCategory && categoryLabel != null)
+                  _InfoBadge(
+                    icon: Icons.sell_rounded,
+                    label: categoryLabel.trim(),
+                    color: cs.primaryContainer,
+                  ),
+                if (hasVisibility && visibilityLabel != null)
+                  _InfoBadge(
+                    icon: Icons.remove_red_eye_rounded,
+                    label: visibilityLabel.trim(),
+                    color: cs.secondaryContainer,
+                  ),
               ],
             ),
-          ),
-        if (event.user != null) const SizedBox(height: 18),
-        _SurfaceCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SectionTitle(
-                icon: Icons.subject_rounded,
-                label: "About this event",
-                color: cs.secondary,
-              ),
-              const SizedBox(height: 18),
-              _maybeRenderYouTube(event.description),
-            ],
-          ),
+          ],
         ),
-        const SizedBox(height: 18),
-        _SurfaceCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SectionTitle(
-                icon: Icons.forum_rounded,
-                label: "Conversation",
-                color: cs.primary,
-                trailing: event.comments?.isNotEmpty == true
-                    ? "${event.comments!.length} ${event.comments!.length == 1 ? 'message' : 'messages'}"
-                    : null,
+      ),
+    ];
+
+    final hostCard = hostSection();
+    if (hostCard is! SizedBox) {
+      children.add(const SizedBox(height: 20));
+      children.add(hostCard);
+    }
+
+    children.addAll([
+      const SizedBox(height: 20),
+      _SurfaceCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionTitle(
+              icon: Icons.description_outlined,
+              label: "About this event",
+              color: cs.primary,
+              trailing: commentsCount > 0
+                  ? "$commentsCount ${commentsCount == 1 ? "comment" : "comments"}"
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            if (description.isNotEmpty)
+              _maybeRenderYouTube(description)
+            else
+              Text(
+                "No description provided yet.",
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
               ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
                 onPressed: () => _openComments(event),
                 icon: const Icon(Icons.chat_bubble_outline_rounded),
-                label: const Text("Open chat"),
+                label: const Text("View comments"),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
+    ]);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
+      physics: const BouncingScrollPhysics(),
+      children: children,
     );
   }
 
@@ -566,184 +785,215 @@ class _EventScreenState extends State<EventScreen>
     required _RsvpOption? summaryOption,
   }) {
     final cs = colorScheme;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+    final statusCounts = <String, int>{};
+    for (final part in participations) {
+      final normalized = _normalizeStatus(part.rsvpStatus) ?? 'pending';
+      statusCounts.update(normalized, (value) => value + 1, ifAbsent: () => 1);
+    }
+
+    String nameFor(EventParticipation p) {
+      final user = p.user;
+      if (user == null) return "Guest";
+      final username = user.username?.trim();
+      if (username != null && username.isNotEmpty) return username;
+      final fullName = [
+        user.firstName?.trim(),
+        user.lastName?.trim(),
+      ].whereType<String>().where((e) => e.isNotEmpty).join(" ");
+      if (fullName.isNotEmpty) return fullName;
+      if (user.email.isNotEmpty) return user.email;
+      return "Guest";
+    }
+
+    Widget statusBadge(String status) {
+      final opt = _optionFor(status);
+      final color = opt?.color ?? cs.onSurfaceVariant;
+      final label = opt?.label ?? _rsvpLabel(status);
+      final icon = opt?.icon ?? Icons.help_outline_rounded;
+      return _InfoBadge(
+        icon: icon,
+        label: "$label (${statusCounts[status] ?? 0})",
+        color: color,
+      );
+    }
+
+    Widget guestTile(EventParticipation p) {
+      final status = _normalizeStatus(p.rsvpStatus) ?? p.rsvpStatus;
+      final opt = _optionFor(status);
+      final badgeColor = opt?.color ?? cs.onSurfaceVariant;
+      final label = opt?.label ?? _rsvpLabel(status);
+      final user = p.user;
+      final avatarUrl = user?.avatarUrl?.trim();
+      final displayName = nameFor(p);
+      final subtitle = user?.tag?.trim().isNotEmpty == true
+          ? "@${user!.tag!.trim()}"
+          : (user?.email.isNotEmpty == true ? user!.email : null);
+
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: cs.primary.withOpacity(0.15),
+            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                ? NetworkImage(avatarUrl)
+                : null,
+            child: (avatarUrl == null || avatarUrl.isEmpty)
+                ? Text(
+                    displayName.isNotEmpty ? displayName[0].toUpperCase() : "?",
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                if (subtitle != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: badgeColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(color: badgeColor, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final children = <Widget>[];
+
+    children.add(
+      _buildRsvpSection(
+        context: context,
+        event: event,
+        colorScheme: cs,
+        selectedStatus: selectedStatus,
+        summaryOption: summaryOption,
+      ),
+    );
+    children.add(const SizedBox(height: 20));
+
+    if (summaryOption != null || selectedStatus != null) {
+      children.addAll([
         _SurfaceCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SectionTitle(
-                icon: Icons.how_to_vote_rounded,
-                label: "Your RSVP",
+                icon: Icons.person_pin_circle_rounded,
+                label: "Your status",
                 color: cs.primary,
+                trailing:
+                    summaryOption?.label ??
+                    (selectedStatus != null
+                        ? _rsvpLabel(selectedStatus)
+                        : null),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
-                "Let others know if they can count on you.",
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                "Update your RSVP from the Overview tab anytime.",
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+      ]);
+    }
+
+    if (participations.isNotEmpty) {
+      children.add(
+        _SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(
+                icon: Icons.group_rounded,
+                label: "Guests",
+                color: cs.secondary,
+                trailing: "${participations.length} total",
               ),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
-                children: _rsvpOptions
-                    .map(
-                      (opt) => SizedBox(
-                        width: 96,
-                        child: _buildRsvpChoice(
-                          context,
-                          event,
-                          opt,
-                          selectedStatus,
-                        ),
-                      ),
-                    )
-                    .toList(),
+                children: statusCounts.keys.map(statusBadge).toList(),
               ),
               const SizedBox(height: 16),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: summaryOption != null
-                    ? Row(
-                        key: ValueKey(summaryOption.value),
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            summaryOption.icon,
-                            size: 18,
-                            color: summaryOption.color,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            "Marked as ${summaryOption.label}",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: summaryOption.color,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        key: const ValueKey("no-response"),
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.hourglass_bottom_rounded,
-                            size: 18,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            "No response yet",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
+              for (var i = 0; i < displayParticipations.length; i++) ...[
+                if (i > 0) const Divider(height: 20, thickness: 0.4),
+                guestTile(displayParticipations[i]),
+              ],
+              if (remainingCount > 0) ...[
+                const SizedBox(height: 16),
+                Text(
+                  "+$remainingCount more ${remainingCount == 1 ? "guest" : "guests"}",
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    } else {
+      children.add(
+        _SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(
+                icon: Icons.group_off_rounded,
+                label: "Guests",
+                color: cs.onSurfaceVariant,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                "No guests yet. Be the first to RSVP!",
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 18),
-        if (participations.isNotEmpty)
-          _SurfaceCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionTitle(
-                  icon: Icons.people_alt_rounded,
-                  label: "Guests",
-                  color: cs.secondary,
-                  trailing: participations.length > 8
-                      ? "+$remainingCount more"
-                      : "${participations.length} attending",
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 64,
-                  child: Stack(
-                    children: [
-                      for (int i = 0; i < displayParticipations.length; i++)
-                        Positioned(
-                          left: i * 40.0,
-                          child: Stack(
-                            children: [
-                              CircleAvatar(
-                                radius: 28,
-                                backgroundImage:
-                                    displayParticipations[i].user?.avatarUrl !=
-                                            null
-                                        ? NetworkImage(displayParticipations[i]
-                                            .user!
-                                            .avatarUrl!)
-                                        : null,
-                                backgroundColor: Colors.grey.shade300,
-                                child: displayParticipations[i]
-                                            .user
-                                            ?.avatarUrl ==
-                                        null
-                                    ? Text(
-                                        (displayParticipations[i]
-                                                    .user
-                                                    ?.username ??
-                                                displayParticipations[i]
-                                                    .user
-                                                    ?.email ??
-                                                "?")[0]
-                                            .toUpperCase(),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              Positioned(
-                                bottom: 2,
-                                right: 2,
-                                child: Container(
-                                  width: 14,
-                                  height: 14,
-                                  decoration: BoxDecoration(
-                                    color: rsvpColor(
-                                      displayParticipations[i].rsvpStatus,
-                                    ),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                "Be the first to RSVP",
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ),
-          ),
-      ],
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
+      physics: const BouncingScrollPhysics(),
+      children: children,
     );
   }
 
@@ -751,99 +1001,120 @@ class _EventScreenState extends State<EventScreen>
     required BuildContext context,
     required Event event,
     required ColorScheme colorScheme,
+    required bool canUpload,
   }) {
     final cs = colorScheme;
-    final files = event.files ?? const [];
-    if (files.isEmpty) {
-      return Center(
-        child: Text(
-          "No shared media yet",
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(color: cs.onSurfaceVariant),
-        ),
-      );
-    }
+    final files = event.files ?? const <EventFile>[];
+    final children = <Widget>[];
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+    if (canUpload) {
+      children.add(
         _SurfaceCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SectionTitle(
-                icon: Icons.attach_file_rounded,
-                label: "Media & files",
+                icon: Icons.file_upload_rounded,
+                label: "Share attachments",
                 color: cs.primary,
-                trailing: "${files.length} item${files.length > 1 ? 's' : ''}",
               ),
-              const SizedBox(height: 16),
-              ...List.generate(files.length, (index) {
-                final f = files[index];
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index == files.length - 1 ? 0 : 12,
-                  ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: () {
-                      if (f.isImage) {
-                        _openImage(f.url);
-                      } else if (f.isPdf) {
-                        _openPdf(f.url);
-                      } else {
-                        _openExternal(f.url);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.surface.withOpacity(0.55),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: cs.outline.withOpacity(0.12),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            f.isImage
-                                ? Icons.image_rounded
-                                : f.isPdf
-                                    ? Icons.picture_as_pdf
-                                    : Icons.insert_drive_file,
-                            color: f.isPdf ? Colors.redAccent : cs.primary,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              f.filename,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          Icon(
-                            Icons.open_in_new_rounded,
-                            size: 18,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _uploadingMedia
+                    ? null
+                    : () => _pickAndUploadMedia(event),
+                icon: const Icon(Icons.cloud_upload_rounded),
+                label: Text(_uploadingMedia ? "Uploading…" : "Upload files"),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                "Accepted guests can share media with everyone in the event.",
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              if (_uploadingMedia) ...[
+                const SizedBox(height: 16),
+                const LinearProgressIndicator(minHeight: 3),
+              ],
             ],
           ),
         ),
-      ],
+      );
+      children.add(const SizedBox(height: 20));
+    }
+
+    if (files.isEmpty) {
+      children.add(
+        _SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(
+                icon: Icons.perm_media_rounded,
+                label: "Attachments",
+                color: cs.secondary,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                canUpload
+                    ? "No files yet. Add your first attachment."
+                    : "No files have been shared for this event.",
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      children.add(
+        _SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(
+                icon: Icons.perm_media_rounded,
+                label: "Attachments",
+                color: cs.secondary,
+                trailing: "${files.length}",
+              ),
+              const SizedBox(height: 16),
+              for (var i = 0; i < files.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                Builder(
+                  builder: (context) {
+                    final file = files[i];
+                    return _MediaTile(
+                      file: file,
+                      colorScheme: cs,
+                      onOpen: () {
+                        if (file.isImage) {
+                          _openImage(file.url);
+                        } else if (file.isPdf) {
+                          _openPdf(file.url);
+                        } else {
+                          _openExternal(file.url);
+                        }
+                      },
+                      onDelete: canUpload
+                          ? () => _deleteMediaFile(event, file.signedId)
+                          : null,
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
+      physics: const BouncingScrollPhysics(),
+      children: children,
     );
   }
 
@@ -896,8 +1167,9 @@ class _EventScreenState extends State<EventScreen>
     final current = _currentRsvpFor(event);
     if (_pendingRsvp == null && current == status) return;
 
-    final previousOffset =
-        _scrollController.hasClients ? _scrollController.offset : 0.0;
+    final previousOffset = _scrollController.hasClients
+        ? _scrollController.offset
+        : 0.0;
 
     if (mounted) {
       setState(() {
@@ -917,8 +1189,7 @@ class _EventScreenState extends State<EventScreen>
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !_scrollController.hasClients) return;
           final maxScroll = _scrollController.position.maxScrollExtent;
-          final targetOffset =
-              previousOffset.clamp(0.0, maxScroll);
+          final targetOffset = previousOffset.clamp(0.0, maxScroll);
           _scrollController.jumpTo(targetOffset);
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -950,7 +1221,11 @@ class _EventScreenState extends State<EventScreen>
   }
 
   Widget _buildRsvpChoice(
-      BuildContext context, Event event, _RsvpOption option, String? selected) {
+    BuildContext context,
+    Event event,
+    _RsvpOption option,
+    String? selected,
+  ) {
     final cs = Theme.of(context).colorScheme;
     final isSelected = selected == option.value;
     final disabled = _rsvpLoading;
@@ -958,8 +1233,7 @@ class _EventScreenState extends State<EventScreen>
     final background = isSelected
         ? option.color.withOpacity(0.18)
         : cs.surface.withOpacity(0.35);
-    final borderColor =
-        isSelected ? option.color : cs.outline.withOpacity(0.4);
+    final borderColor = isSelected ? option.color : cs.outline.withOpacity(0.4);
     final iconColor = isSelected ? option.color : cs.onSurfaceVariant;
     final textColor = isSelected ? option.color : cs.onSurface;
 
@@ -975,10 +1249,7 @@ class _EventScreenState extends State<EventScreen>
           decoration: BoxDecoration(
             color: background,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: borderColor,
-              width: isSelected ? 2 : 1,
-            ),
+            border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
@@ -998,10 +1269,7 @@ class _EventScreenState extends State<EventScreen>
               Text(
                 option.label,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w600, color: textColor),
               ),
             ],
           ),
@@ -1011,8 +1279,9 @@ class _EventScreenState extends State<EventScreen>
   }
 
   Widget _maybeRenderYouTube(String text) {
-    final ytRegex =
-        RegExp(r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})');
+    final ytRegex = RegExp(
+      r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})',
+    );
     final match = ytRegex.firstMatch(text);
     if (match != null) {
       final videoId = match.group(1)!;
@@ -1075,11 +1344,13 @@ class _EventScreenState extends State<EventScreen>
           final e = snapshot.data!;
           final participations = e.participations ?? [];
           final displayParticipations = participations.take(8).toList();
-          final remainingCount =
-              participations.length > 8 ? participations.length - 8 : 0;
+          final remainingCount = participations.length > 8
+              ? participations.length - 8
+              : 0;
           final selectedStatus = _pendingRsvp ?? _currentRsvpFor(e);
-          final summaryOption =
-              selectedStatus != null ? _optionFor(selectedStatus) : null;
+          final summaryOption = selectedStatus != null
+              ? _optionFor(selectedStatus)
+              : null;
           final hostName = e.user != null
               ? (() {
                   final username = e.user!.username?.trim();
@@ -1100,10 +1371,10 @@ class _EventScreenState extends State<EventScreen>
               visibilityLabel != null && visibilityLabel.trim().isNotEmpty;
           final hostInitial = e.user != null
               ? (hostName != null && hostName.isNotEmpty
-                  ? hostName[0].toUpperCase()
-                  : (e.user!.email.isNotEmpty
-                      ? e.user!.email[0].toUpperCase()
-                      : "?"))
+                    ? hostName[0].toUpperCase()
+                    : (e.user!.email.isNotEmpty
+                          ? e.user!.email[0].toUpperCase()
+                          : "?"))
               : null;
           final hostTag = e.user?.tag?.trim().isNotEmpty == true
               ? e.user!.tag!.trim()
@@ -1250,11 +1521,13 @@ class _EventScreenState extends State<EventScreen>
                     context: context,
                     event: e,
                     colorScheme: cs,
+                    canUpload: _canUploadMedia(e),
                   ),
                 ],
               ),
             ),
-          );        },
+          );
+        },
       ),
     );
   }

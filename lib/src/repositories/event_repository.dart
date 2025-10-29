@@ -62,12 +62,16 @@ class EventRepository {
   }
 
   Future<void> updateRsvp(
-      BuildContext context, String eventId, String status) async {
+    BuildContext context,
+    String eventId,
+    String status,
+  ) async {
     final token = await _authService.getToken();
     if (token == null) throw Exception("No token found. Please log in.");
 
-    final res = await _client.post("/events/$eventId/rsvp", {"status": status},
-        token: token);
+    final res = await _client.post("/events/$eventId/rsvp", {
+      "status": status,
+    }, token: token);
     if (res.statusCode != 200) {
       throw Exception("RSVP failed (${res.statusCode})");
     }
@@ -119,15 +123,20 @@ class EventRepository {
 
     // Cover image
     if (coverImage != null) {
-      request.files.add(await http.MultipartFile.fromPath(
-          "event[cover_image]", coverImage.path));
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          "event[cover_image]",
+          coverImage.path,
+        ),
+      );
     }
 
     // Additional files
     if (files != null) {
       for (final f in files) {
-        request.files.add(await http.MultipartFile.fromPath(
-            "event[files][]", f.path));
+        request.files.add(
+          await http.MultipartFile.fromPath("event[files][]", f.path),
+        );
       }
     }
 
@@ -190,15 +199,20 @@ class EventRepository {
 
     // Cover image (optional new one)
     if (coverImage != null) {
-      request.files.add(await http.MultipartFile.fromPath(
-          "event[cover_image]", coverImage.path));
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          "event[cover_image]",
+          coverImage.path,
+        ),
+      );
     }
 
     // Additional new files
     if (files != null) {
       for (final f in files) {
-        request.files.add(await http.MultipartFile.fromPath(
-            "event[files][]", f.path));
+        request.files.add(
+          await http.MultipartFile.fromPath("event[files][]", f.path),
+        );
       }
     }
 
@@ -218,5 +232,57 @@ class EventRepository {
       print("❌ Update event failed: ${res.statusCode} → $body");
       throw Exception("Failed to update event");
     }
+  }
+
+  Future<Event> uploadEventFiles({
+    required String eventId,
+    required List<File> files,
+  }) async {
+    if (files.isEmpty) {
+      throw Exception("No files selected");
+    }
+
+    final token = await _authService.getToken();
+    if (token == null) throw Exception("No token found. Please log in.");
+
+    final uri = Uri.parse("${_client.baseUrl}/events/$eventId/upload_files");
+    final request = http.MultipartRequest("POST", uri);
+    request.headers['Authorization'] = "Bearer $token";
+
+    for (final file in files) {
+      request.files.add(
+        await http.MultipartFile.fromPath("event[files][]", file.path),
+      );
+    }
+
+    final res = await request.send();
+    final body = await res.stream.bytesToString();
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return JsonApiParser.parseEvent(body);
+    }
+
+    print("❌ Upload event files failed: ${res.statusCode} → $body");
+    throw Exception("Failed to upload files (${res.statusCode})");
+  }
+
+  Future<Event> deleteEventFile({
+    required String eventId,
+    required String signedId,
+  }) async {
+    final token = await _authService.getToken();
+    if (token == null) throw Exception("No token found. Please log in.");
+
+    final res = await _client.patch("/events/$eventId", {
+      "event": {
+        "removed_files": [signedId],
+      },
+    }, token: token);
+
+    if (res.statusCode == 200) {
+      return JsonApiParser.parseEvent(res.body);
+    }
+
+    print("❌ Delete file failed: ${res.statusCode} → ${res.body}");
+    throw Exception("Failed to delete file (${res.statusCode})");
   }
 }
