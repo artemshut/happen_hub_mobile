@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../models/user.dart';
+import 'plans_screen.dart';
 import 'login.dart';
 import '../services/auth_service.dart';
 import '../providers/theme_provider.dart';
@@ -159,6 +160,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: _ThemeToggleCard(),
+          ),
+
+          const SizedBox(height: 16),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PlansScreen()),
+                );
+              },
+              icon: const Icon(Icons.workspace_premium_outlined),
+              label: const Text('Plans & Pricing'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
           ),
         ],
       ),

@@ -4,6 +4,7 @@ import '../models/event.dart';
 import '../models/event_category.dart';
 import '../models/comment.dart';
 import '../models/group.dart';
+import '../models/plan.dart';
 
 class JsonApiParser {
   /// Parse a list of events from a JSON:API response
@@ -70,6 +71,15 @@ class JsonApiParser {
     final data = (json['data'] as List<dynamic>? ?? const []);
     return data
         .map((item) => EventCategory.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Parse plans from a JSON:API response
+  static List<Plan> parsePlans(String responseBody) {
+    final Map<String, dynamic> json = jsonDecode(responseBody);
+    final data = (json['data'] as List<dynamic>? ?? const []);
+    return data
+        .map((item) => Plan.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 
