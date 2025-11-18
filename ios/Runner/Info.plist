@@ -51,6 +51,16 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 
+	<!-- App Store-required usage descriptions -->
+	<key>NSCameraUsageDescription</key>
+	<string>This lets you take photos for your profile and events.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We use your photo library so you can choose images for events and your profile.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We may save images you create or edit back to your photo library.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location helps us suggest nearby places when creating events.</string>
+
 	<!-- 👇 ADD THIS -->
 	<key>CFBundleURLTypes</key>
 	<array>
@@ -59,8 +69,9 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<!-- Use the REVERSED_CLIENT_ID from GoogleService-Info.plist -->
-				<string>521400701362-9bj6galln7ff2g4l6oho1cdl54oh959n.apps.googleusercontent.com</string>
+				<!-- TODO: Replace with REVERSED_CLIENT_ID from your GoogleService-Info.plist -->
+				<!-- Example format: com.googleusercontent.apps.XXXXXXXXXXXX-XXXXXXXXXXXX -->
+				<string>com.googleusercontent.apps.REPLACE_ME</string>
 			</array>
 		</dict>
 	</array>

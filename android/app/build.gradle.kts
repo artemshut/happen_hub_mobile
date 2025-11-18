@@ -5,6 +5,9 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
 android {
     namespace = "com.example.happen_hub_mobile"
     compileSdk = flutter.compileSdkVersion
@@ -31,6 +34,27 @@ android {
         }
     }
 
+    // Load signing credentials from key.properties if present
+    val keystoreProperties = Properties()
+    val keystoreFile = rootProject.file("key.properties")
+    if (keystoreFile.exists()) {
+        FileInputStream(keystoreFile).use { keystoreProperties.load(it) }
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystoreFile.exists()) {
+                val storeFilePath = keystoreProperties.getProperty("storeFile")
+                if (storeFilePath != null) {
+                    storeFile = file(storeFilePath)
+                    storePassword = keystoreProperties.getProperty("storePassword")
+                    keyAlias = keystoreProperties.getProperty("keyAlias")
+                    keyPassword = keystoreProperties.getProperty("keyPassword")
+                }
+            }
+        }
+    }
+
     bundle {
         // Split APKs by ABI/density so Play delivers smaller downloads.
         abi { enableSplit = true }
@@ -40,8 +64,9 @@ android {
 
     buildTypes {
         release {
-            // TODO: replace with real signing config later
-            signingConfig = signingConfigs.getByName("debug")
+            // Use real release signing if key.properties is present; otherwise fall back to debug.
+            signingConfig = if (signingConfigs.getByName("release").storeFile != null)
+                signingConfigs.getByName("release") else signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
