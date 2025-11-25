@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/comment.dart';
 import '../models/event.dart';
+import '../models/user.dart';
 import '../repositories/comment_repository.dart';
 
 class EventCommentsScreen extends StatefulWidget {
@@ -147,8 +148,29 @@ class _EventCommentsScreenState extends State<EventCommentsScreen> {
         widget.event.user?.id == widget.currentUserId;
   }
 
+  User? _resolveCommentUser(Comment comment) {
+    if (comment.user != null) {
+      return comment.user;
+    }
+    final id = comment.userId;
+    if (id == null) return null;
+
+    if (widget.event.user?.id == id) {
+      return widget.event.user;
+    }
+
+    final participants = widget.event.participations ?? const [];
+    for (final part in participants) {
+      final user = part.user;
+      if (user != null && user.id == id) {
+        return user;
+      }
+    }
+    return null;
+  }
+
   String _senderName(Comment comment) {
-    final user = comment.user;
+    final user = _resolveCommentUser(comment);
     if (user == null) return "Member";
 
     final fullName = [

@@ -73,146 +73,150 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final cs = Theme.of(context).colorScheme;
     final events = _getEventsForDay(day);
     final hasEvents = events.isNotEmpty;
-    final dayOnly = _stripTime(day);
 
-    bool connectsLeft = false;
-    bool connectsRight = false;
+    final highlightFill = isSelected
+        ? cs.primary.withOpacity(0.14)
+        : hasEvents
+            ? cs.primary.withOpacity(isOutside ? 0.08 : 0.12)
+            : Colors.transparent;
 
-    for (final event in events) {
-      final start = _stripTime(event.startTime);
-      final end = _stripTime(event.endTime ?? event.startTime);
-      if (end.isBefore(start)) continue;
-
-      if (dayOnly.isAfter(start) && !dayOnly.isAfter(end)) {
-        connectsLeft = true;
-      }
-      if (dayOnly.isBefore(end) && !dayOnly.isBefore(start)) {
-        connectsRight = true;
-      }
-    }
-
-    final onlySingleDay = hasEvents &&
-        events.every((event) {
-          final start = _stripTime(event.startTime);
-          final end = _stripTime(event.endTime ?? event.startTime);
-          return isSameDay(start, end);
-        });
-
-    final borderRadius = !hasEvents
-        ? BorderRadius.circular(12)
-        : (!connectsLeft && !connectsRight) || onlySingleDay
-            ? BorderRadius.circular(16)
-            : connectsLeft && connectsRight
-                ? BorderRadius.circular(6)
-                : connectsLeft
-                    ? const BorderRadius.horizontal(
-                        left: Radius.circular(6),
-                        right: Radius.circular(16),
-                      )
-                    : const BorderRadius.horizontal(
-                        left: Radius.circular(16),
-                        right: Radius.circular(6),
-                      );
-
-    final margin = EdgeInsets.only(
-      left: connectsLeft ? 2 : 6,
-      right: connectsRight ? 2 : 6,
-      top: 6,
-      bottom: 6,
-    );
-
-    final List<Color>? gradientColors =
-        hasEvents || isSelected
-            ? (isSelected
-                ? [
-                    cs.primary,
-                    cs.secondary,
-                  ]
-                : [
-                    cs.primary.withOpacity(isOutside ? 0.15 : 0.25),
-                    (cs.tertiary ?? cs.secondary)
-                        .withOpacity(isOutside ? 0.1 : 0.2),
-                  ])
-            : null;
-
-    final gradient = gradientColors != null
-        ? LinearGradient(
-            colors: gradientColors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    final halo = hasEvents
+        ? Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  cs.primary.withOpacity(0.25),
+                  Colors.transparent,
+                ],
+                radius: 0.8,
+              ),
+            ),
           )
-        : null;
+        : const SizedBox.shrink();
 
     final textColor = isSelected
-        ? cs.onPrimary
+        ? cs.onSurface
         : isOutside
-            ? cs.onSurface.withOpacity(0.3)
+            ? cs.onSurface.withOpacity(0.35)
             : cs.onSurface;
 
-    return Container(
-      margin: margin,
+    final dots = <Widget>[];
+    final dotColor = cs.primary;
+    var dotCount = events.length;
+    if (dotCount > 3) dotCount = 3;
+    for (var i = 0; i < dotCount; i++) {
+      dots.add(Container(
+        width: 6,
+        height: 6,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: dotColor.withOpacity(0.85 - (i * 0.15)),
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: dotColor.withOpacity(0.4),
+              blurRadius: 6,
+              spreadRadius: 0.5,
+            ),
+          ],
+        ),
+      ));
+    }
+    if (events.length > 3) {
+      dots.add(Text(
+        "+${events.length - 3}",
+        style: TextStyle(
+          fontSize: 10,
+          color: cs.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
+      ));
+    }
+
+    final markerRow = AnimatedOpacity(
+      duration: const Duration(milliseconds: 240),
+      opacity: hasEvents ? 1 : 0,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: dots,
+      ),
+    );
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
-        color: gradient == null ? Colors.transparent : null,
-        gradient: gradient,
-        borderRadius: borderRadius,
-        border: isToday
-            ? Border.all(
-                color: isSelected
-                    ? cs.onPrimary.withOpacity(0.6)
-                    : cs.primary.withOpacity(0.8),
-                width: 1.4,
-              )
-            : null,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isSelected
+              ? cs.primary
+              : hasEvents
+                  ? cs.primary.withOpacity(isOutside ? 0.25 : 0.4)
+                  : Colors.transparent,
+          width: isSelected ? 1.4 : 1,
+        ),
         boxShadow: hasEvents || isSelected
             ? [
                 BoxShadow(
-                  color: (isSelected
-                          ? cs.primary.withOpacity(0.35)
-                          : cs.primary.withOpacity(isOutside ? 0.12 : 0.22)),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
+                  color: cs.primary.withOpacity(isSelected ? 0.35 : 0.18),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
                 ),
               ]
             : null,
       ),
       child: Stack(
+        alignment: Alignment.center,
         children: [
-          Align(
-            alignment: Alignment.center,
-            child: Text(
-              "${day.day}",
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.w600,
+          Positioned.fill(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              decoration: BoxDecoration(
+                color: highlightFill,
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
           ),
           if (hasEvents)
-            Positioned(
-              bottom: 6,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? Colors.white.withOpacity(0.25)
-                        : Colors.white.withOpacity(0.65),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    events.length.toString(),
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : cs.primary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: halo,
               ),
             ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isToday) ...[
+                  Text(
+                    "NOW",
+                    style: TextStyle(
+                      fontSize: 8,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w700,
+                      color: cs.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                ],
+                Text(
+                  "${day.day}",
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                SizedBox(height: 6, child: markerRow),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -416,13 +420,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Calendar
-                      Card(
+                      Container(
                         margin: const EdgeInsets.only(bottom: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(26),
+                          border:
+                              Border.all(color: cs.outline.withOpacity(0.08)),
+                          color: cs.surface.withOpacity(0.65),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.25),
+                              blurRadius: 30,
+                              offset: const Offset(0, 20),
+                            ),
+                          ],
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 16,
+                          ),
                           child: TableCalendar(
                             firstDay: DateTime.utc(2020, 1, 1),
                             lastDay: DateTime.utc(2030, 12, 31),
@@ -440,17 +457,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               formatButtonVisible: false,
                               titleCentered: true,
                               titleTextStyle: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: cs.primary,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.5,
+                                color: cs.onSurface,
                               ),
+                              leftChevronIcon: Icon(
+                                Icons.chevron_left_rounded,
+                                color: cs.onSurface,
+                              ),
+                              rightChevronIcon: Icon(
+                                Icons.chevron_right_rounded,
+                                color: cs.onSurface,
+                              ),
+                              headerPadding: const EdgeInsets.only(bottom: 12),
                             ),
                             calendarStyle: CalendarStyle(
                               outsideDaysVisible: false,
                               markersMaxCount: 0,
                               todayDecoration: const BoxDecoration(),
                               selectedDecoration: const BoxDecoration(),
-                              weekendTextStyle:
-                                  TextStyle(color: cs.secondary),
+                              weekendTextStyle: TextStyle(
+                                color: cs.onSurface.withOpacity(0.85),
+                              ),
+                              defaultTextStyle: TextStyle(
+                                color: cs.onSurface.withOpacity(0.85),
+                              ),
                             ),
                             calendarBuilders: CalendarBuilders(
                               defaultBuilder: (context, day, focusedDay) =>

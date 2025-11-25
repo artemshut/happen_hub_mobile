@@ -2,4 +2,5 @@
 <resources>
     <color name="splash_gradient_start">#FF7C3AED</color>
     <color name="splash_gradient_end">#FFEC4899</color>
+	<color name="ic_launcher_background">#111220</color>
 </resources>

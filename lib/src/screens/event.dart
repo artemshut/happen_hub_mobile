@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_html/flutter_html.dart';
@@ -69,10 +70,16 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final accent = Color.lerp(
+          theme.colorScheme.onSurface,
+          color,
+          0.35,
+        ) ??
+        theme.colorScheme.onSurface;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Icon(icon, color: color, size: 22),
+        Icon(icon, color: accent, size: 22),
         const SizedBox(width: 10),
         Text(
           label,
@@ -151,15 +158,21 @@ class _InfoBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final accent = Color.lerp(cs.onSurface, color, 0.25) ?? cs.onSurface;
+    final background = Color.alphaBlend(
+      Colors.black.withOpacity(0.65),
+      cs.surface,
+    );
+    final borderColor = Color.lerp(cs.outline, accent, 0.15);
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: color),
+        Icon(icon, size: 16, color: accent),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
             label,
-            style: TextStyle(fontWeight: FontWeight.w600, color: color),
+            style: TextStyle(fontWeight: FontWeight.w600, color: accent),
           ),
         ),
       ],
@@ -168,9 +181,9 @@ class _InfoBadge extends StatelessWidget {
     final decorated = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: background,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: borderColor ?? cs.outline.withOpacity(0.3)),
       ),
       child: content,
     );
@@ -183,6 +196,203 @@ class _InfoBadge extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: decorated,
+    );
+  }
+}
+
+class _DetailLine extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+
+  const _DetailLine({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final textTheme = theme.textTheme;
+
+    final iconBadge = Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: cs.onSurface.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outline.withOpacity(0.2)),
+      ),
+      child: Icon(icon, size: 20, color: cs.onSurface),
+    );
+
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          iconBadge,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  style: textTheme.labelSmall?.copyWith(
+                    letterSpacing: 3,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  value,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onTap != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Icon(
+                Icons.north_east_rounded,
+                size: 16,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (onTap == null) {
+      return content;
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: content,
+    );
+  }
+}
+
+class _ExpandableDescription extends StatefulWidget {
+  final String text;
+  final Widget content;
+
+  const _ExpandableDescription({
+    required this.text,
+    required this.content,
+  });
+
+  @override
+  State<_ExpandableDescription> createState() => _ExpandableDescriptionState();
+}
+
+class _ExpandableDescriptionState extends State<_ExpandableDescription> {
+  bool _expanded = false;
+
+  String get _rawText => widget.text
+      .replaceAll(RegExp(r'<[^>]*>'), ' ')
+      .replaceAll('&nbsp;', ' ');
+
+  String get _plainText =>
+      _rawText.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  bool get _isLong =>
+      _plainText.length > 280 || _rawText.split('\n').length > 4;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isLong) {
+      return widget.content;
+    }
+
+    final cs = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    final preview = Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cs.surface.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline.withOpacity(0.12)),
+      ),
+      child: Stack(
+        children: [
+          Text(
+            _plainText,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.bodyMedium?.copyWith(
+              color: cs.onSurface,
+              height: 1.5,
+              letterSpacing: 0.2,
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: Container(
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      cs.surface.withOpacity(0.85),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedCrossFade(
+          firstChild: preview,
+          secondChild: widget.content,
+          crossFadeState:
+              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 300),
+          sizeCurve: Curves.easeOut,
+          firstCurve: Curves.easeOut,
+          secondCurve: Curves.easeOut,
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _expanded = !_expanded),
+            icon: Icon(
+              _expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+            ),
+            label: Text(_expanded ? "Hide manifesto" : "Read manifesto"),
+            style: TextButton.styleFrom(
+              foregroundColor: cs.onSurface,
+              textStyle: textTheme.labelLarge?.copyWith(letterSpacing: 1.2),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -203,28 +413,30 @@ class _SurfaceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final base = Color.lerp(Colors.black, cs.surface, 0.7);
+    final overlay = Color.lerp(Colors.black, cs.surfaceVariant, 0.85);
 
     return Container(
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: cs.outline.withOpacity(0.12)),
+        border: Border.all(color: cs.outline.withOpacity(0.18)),
         gradient:
             gradient ??
             LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                cs.surfaceVariant.withOpacity(0.85),
-                cs.surface.withOpacity(0.7),
+                overlay ?? cs.surfaceVariant.withOpacity(0.8),
+                base ?? cs.surface.withOpacity(0.65),
               ],
             ),
         boxShadow: [
           BoxShadow(
-            color: cs.shadow.withOpacity(0.05),
-            blurRadius: 24,
-            offset: const Offset(0, 16),
+            color: Colors.black.withOpacity(0.35),
+            blurRadius: 30,
+            offset: const Offset(0, 20),
           ),
         ],
       ),
@@ -671,53 +883,67 @@ class _EventScreenState extends State<EventScreen>
       );
     }
 
+    final detailEntries = <Widget>[
+      _DetailLine(
+        icon: Icons.schedule_rounded,
+        label: "Start",
+        value: _formatDate(event.startTime),
+      ),
+      if (event.endTime != null)
+        _DetailLine(
+          icon: Icons.hourglass_bottom_rounded,
+          label: "End",
+          value: _formatDate(event.endTime),
+        ),
+      if (location != null && location.isNotEmpty)
+        _DetailLine(
+          icon: Icons.location_on_outlined,
+          label: "Location",
+          value: location,
+          onTap: () => _openMaps(location),
+        ),
+    ];
+
+    final detailColumn = <Widget>[];
+    for (var i = 0; i < detailEntries.length; i++) {
+      detailColumn.add(detailEntries[i]);
+      if (i != detailEntries.length - 1) {
+        detailColumn.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: cs.outline.withOpacity(0.18),
+            ),
+          ),
+        );
+      }
+    }
+
     final children = <Widget>[
       _SurfaceCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SectionTitle(
-              icon: Icons.event,
-              label: "Details",
-              color: cs.secondary,
+            Text(
+              "NIGHT LOGISTICS",
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    letterSpacing: 4,
+                    fontFeatures: const [FontFeature.enable('smcp')],
+                  ),
             ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _InfoBadge(
-                  icon: Icons.schedule_rounded,
-                  label: "Starts ${_formatDate(event.startTime)}",
-                  color: cs.primary,
-                ),
-                if (event.endTime != null)
-                  _InfoBadge(
-                    icon: Icons.hourglass_bottom_rounded,
-                    label: "Ends ${_formatDate(event.endTime)}",
-                    color: cs.tertiary,
+            const SizedBox(height: 12),
+            Text(
+              event.title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
                   ),
-                if (location != null && location.isNotEmpty)
-                  _InfoBadge(
-                    icon: Icons.location_on_rounded,
-                    label: location,
-                    color: cs.error,
-                    onTap: () => _openMaps(location),
-                  ),
-                if (hasCategory && categoryLabel != null)
-                  _InfoBadge(
-                    icon: Icons.sell_rounded,
-                    label: categoryLabel.trim(),
-                    color: cs.primaryContainer,
-                  ),
-                if (hasVisibility && visibilityLabel != null)
-                  _InfoBadge(
-                    icon: Icons.remove_red_eye_rounded,
-                    label: visibilityLabel.trim(),
-                    color: cs.secondaryContainer,
-                  ),
-              ],
             ),
+            const SizedBox(height: 24),
+            ...detailColumn,
           ],
         ),
       ),
@@ -745,7 +971,10 @@ class _EventScreenState extends State<EventScreen>
             ),
             const SizedBox(height: 16),
             if (description.isNotEmpty)
-              _maybeRenderYouTube(description)
+              _ExpandableDescription(
+                text: description,
+                content: _maybeRenderYouTube(description),
+              )
             else
               Text(
                 "No description provided yet.",
