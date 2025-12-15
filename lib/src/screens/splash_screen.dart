@@ -115,15 +115,6 @@ class _SplashScreenState extends State<SplashScreen>
                   opacity: _textFade,
                   child: Column(
                     children: [
-                      Text(
-                        "HappenHub",
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: cs.onPrimary,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
                       const SizedBox(height: 8),
                       Text(
                         "Discover what's happening around you",

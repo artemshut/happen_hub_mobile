@@ -62,6 +62,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return "All day";
   }
 
+  DateTime _eventEndTime(Event event) => event.endTime ?? event.startTime;
+
+  bool _isPastEvent(Event event, DateTime reference) {
+    return _eventEndTime(event).isBefore(reference);
+  }
+
   Widget _buildCalendarDay(
     BuildContext context,
     DateTime day,
@@ -390,12 +396,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _groupedEvents = _groupEventsByDay(events);
 
                   final now = DateTime.now();
-                  final upcoming = events.where((e) => e.startTime.isAfter(now)).toList();
-                  final past = events.where((e) => e.startTime.isBefore(now)).toList();
+                  final upcoming = events.where((e) => !_isPastEvent(e, now)).toList();
+                  final past = events.where((e) => _isPastEvent(e, now)).toList();
                   final selectedEvents =
                       _selectedDay != null ? _getEventsForDay(_selectedDay!) : [];
                   upcoming.sort((a, b) => a.startTime.compareTo(b.startTime));
-                  past.sort((a, b) => b.startTime.compareTo(a.startTime));
+                  past.sort((a, b) => _eventEndTime(b).compareTo(_eventEndTime(a)));
 
                   final categories = events
                       .map((e) => e.category?.name?.trim())
