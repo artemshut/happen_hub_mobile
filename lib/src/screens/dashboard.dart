@@ -68,6 +68,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _eventEndTime(event).isBefore(reference);
   }
 
+  String _greetingLine(String? firstName, String? username) {
+    final trimmed = firstName?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      return "Hey $trimmed, ready for tonight?";
+    }
+    final handle = username?.trim();
+    if (handle != null && handle.isNotEmpty) {
+      return "Hey @$handle, ready for tonight?";
+    }
+    return "Hey there, ready for tonight?";
+  }
+
   Widget _buildCalendarDay(
     BuildContext context,
     DateTime day,
@@ -355,20 +367,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
         slivers: [
           // 🌈 Gradient AppBar
           SliverAppBar(
-            expandedHeight: 120,
+            expandedHeight: 100,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                "Dashboard",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: cs.onPrimary,
-                ),
+              titlePadding: const EdgeInsetsDirectional.only(
+                start: 16,
+                bottom: 12,
+                end: 16,
+              ),
+              title: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Dashboard",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: cs.onPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _greetingLine(currentUser?.firstName, currentUser?.username),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onPrimary.withOpacity(0.9),
+                    ),
+                  ),
+                ],
               ),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [cs.primary, cs.secondary, cs.tertiary ?? cs.secondary],
+                    colors: [
+                      cs.primary,
+                      cs.secondary,
+                      cs.tertiary ?? cs.secondary,
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -421,6 +456,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   final nextEvent =
                       filteredUpcoming.isNotEmpty ? filteredUpcoming.first : null;
+
+                  final visiblePast = past.take(5).toList();
+                  final hiddenPastCount = past.length - visiblePast.length;
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,11 +566,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ),
-                        ),
                       ),
+                    ),
 
-                      // Events for selected day
-                      if (selectedEvents.isNotEmpty) ...[
+                    // Events for selected day
+                    if (selectedEvents.isNotEmpty) ...[
                         Text("Events on this day",
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
@@ -940,7 +978,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 )),
                         const SizedBox(height: 12),
                         Column(
-                          children: past.map((e) {
+                          children: visiblePast.map((e) {
                             return Card(
                               margin: const EdgeInsets.only(bottom: 12),
                               child: ListTile(
@@ -967,6 +1005,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             );
                           }).toList(),
                         ),
+                        if (hiddenPastCount > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              "+$hiddenPastCount more in history",
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                            ),
+                          ),
                       ],
                     ],
                   );
@@ -1029,8 +1077,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-}
 
+}
 class _CategoryFilterChip extends StatelessWidget {
   final String label;
   final bool selected;

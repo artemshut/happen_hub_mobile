@@ -6,6 +6,8 @@ class User {
   final String? username;
   final String? tag;
   final String? avatarUrl;
+  final int xp;
+  final List<String> badges;
 
   User({
     required this.id,
@@ -15,10 +17,18 @@ class User {
     this.username,
     this.tag,
     this.avatarUrl,
+    this.xp = 0,
+    this.badges = const [],
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
     final attrs = (json['attributes'] ?? json) as Map<String, dynamic>;
+    final cosmeticUnlocks = attrs['cosmetic_unlocks'] as Map<String, dynamic>?;
+    final badgesList = (cosmeticUnlocks?['badges'] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const [];
+    final xpValue = attrs['xp'];
     return User(
       id: (json['id'] ?? attrs['id'] ?? '').toString(),
       email: (attrs['email'] ?? '').toString(),
@@ -27,10 +37,14 @@ class User {
       username: attrs['username']?.toString(),
       tag: attrs['tag']?.toString(),
       avatarUrl: attrs['avatar_url']?.toString(),
+      xp: xpValue is num
+          ? xpValue.toInt()
+          : int.tryParse(xpValue?.toString() ?? '') ?? 0,
+      badges: badgesList,
     );
   }
 
   @override
   String toString() =>
-      'User(id:$id, email:$email, username:$username, avatarUrl:$avatarUrl)';
+      'User(id:$id, email:$email, username:$username, avatarUrl:$avatarUrl, xp:$xp)';
 }

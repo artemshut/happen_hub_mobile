@@ -19,6 +19,7 @@ class Event {
   final String? coverImageUrl;
   String? visibility; // "public" or "friends" or "private"
   final List<EventFile>? files;
+  final List<EventSubEvent> subEvents;
 
   Event({
     required this.id,
@@ -36,6 +37,7 @@ class Event {
     this.visibility,
     this.coverImageUrl,
     this.files,
+    this.subEvents = const [],
   });
 
   factory Event.fromJson(
@@ -89,7 +91,31 @@ class Event {
     final attrs = (json['attributes'] ?? const {}) as Map<String, dynamic>;
 
     final rawFiles = attrs['files'] as List<dynamic>?;
-    final files = rawFiles?.map((f) => EventFile.fromJson(f as Map<String, dynamic>)).toList();
+    final files =
+        rawFiles?.map((f) => EventFile.fromJson(f as Map<String, dynamic>)).toList();
+    final subEvents = <EventSubEvent>[];
+
+    // Sub-events from relationships/included
+    final subRefs =
+        (json['relationships']?['sub_events']?['data'] as List?) ?? const [];
+    for (final ref in subRefs) {
+      final inc = idx[ref['type']]?[ref['id']];
+      if (inc != null) {
+        subEvents.add(EventSubEvent.fromJson(inc));
+      }
+    }
+
+    // Fallback: sub_events embedded directly in attributes
+    final rawSubEvents = attrs['sub_events'] as List<dynamic>?;
+    if (rawSubEvents != null && rawSubEvents.isNotEmpty) {
+      for (final entry in rawSubEvents) {
+        final sub =
+            EventSubEvent.fromJson((entry as Map).cast<String, dynamic>());
+        if (!subEvents.any((existing) => existing.id == sub.id)) {
+          subEvents.add(sub);
+        }
+      }
+    }
 
     final descRaw = attrs['description'];
     final description = (descRaw is String)
@@ -127,6 +153,7 @@ class Event {
       visibility: attrs['visibility']?.toString(),
       latitude: attrs['latitude'] != null ? (attrs['latitude'] as num).toDouble() : null,
       longitude: attrs['longitude'] != null ? (attrs['longitude'] as num).toDouble() : null,
+      subEvents: subEvents,
     );
   }
 }
@@ -158,4 +185,48 @@ class EventFile {
 
   bool get isImage => contentType.startsWith('image/');
   bool get isPdf => contentType == 'application/pdf';
+}
+
+class EventSubEvent {
+  final String id;
+  final String title;
+  final DateTime? startTime;
+  final DateTime? endTime;
+  final String? location;
+  final String? notes;
+  final int? position;
+  final int? durationMinutes;
+
+  const EventSubEvent({
+    required this.id,
+    required this.title,
+    this.startTime,
+    this.endTime,
+    this.location,
+    this.notes,
+    this.position,
+    this.durationMinutes,
+  });
+
+  factory EventSubEvent.fromJson(Map<String, dynamic> json) {
+    final attrs = (json['attributes'] ?? json) as Map<String, dynamic>;
+    DateTime? parseDate(dynamic value) =>
+        value == null ? null : DateTime.tryParse(value.toString());
+    int? parseInt(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toInt();
+      return int.tryParse(value.toString());
+    }
+
+    return EventSubEvent(
+      id: (json['id'] ?? attrs['id'] ?? '').toString(),
+      title: (attrs['title'] ?? '').toString(),
+      startTime: parseDate(attrs['start_time']),
+      endTime: parseDate(attrs['end_time']),
+      location: attrs['location']?.toString(),
+      notes: attrs['notes']?.toString(),
+      position: parseInt(attrs['position']),
+      durationMinutes: parseInt(attrs['duration_minutes']),
+    );
+  }
 }

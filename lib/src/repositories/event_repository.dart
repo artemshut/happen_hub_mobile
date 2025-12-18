@@ -285,4 +285,132 @@ class EventRepository {
     print("❌ Delete file failed: ${res.statusCode} → ${res.body}");
     throw Exception("Failed to delete file (${res.statusCode})");
   }
+
+  Future<List<EventSubEvent>> fetchSubEvents(String eventId) async {
+    final token = await _authService.getToken();
+    if (token == null) throw Exception("No token found. Please log in.");
+
+    final res = await _client.get("/events/$eventId/sub_events", token: token);
+    if (res.statusCode == 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final data = body['data'] as List<dynamic>? ?? const [];
+      return data
+          .map((item) => EventSubEvent.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+    throw Exception("Failed to load segments (${res.statusCode})");
+  }
+
+  Future<EventSubEvent> createSubEvent({
+    required String eventId,
+    required String title,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? location,
+    String? notes,
+  }) async {
+    final token = await _authService.getToken();
+    if (token == null) throw Exception("No token found. Please log in.");
+
+    final payload = _buildSubEventPayload(
+      title: title,
+      startTime: startTime,
+      endTime: endTime,
+      location: location,
+      notes: notes,
+    );
+    final res = await _client.post(
+      "/events/$eventId/sub_events",
+      {"sub_event": payload},
+      token: token,
+    );
+    if (res.statusCode == 201 || res.statusCode == 200) {
+      return _parseSubEventResponse(res.body);
+    }
+    throw Exception("Failed to create segment (${res.statusCode})");
+  }
+
+  Future<EventSubEvent> updateSubEvent({
+    required String eventId,
+    required String subEventId,
+    required String title,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? location,
+    String? notes,
+  }) async {
+    final token = await _authService.getToken();
+    if (token == null) throw Exception("No token found. Please log in.");
+
+    final payload = _buildSubEventPayload(
+      title: title,
+      startTime: startTime,
+      endTime: endTime,
+      location: location,
+      notes: notes,
+      includeNulls: true,
+    );
+    final res = await _client.patch(
+      "/events/$eventId/sub_events/$subEventId",
+      {"sub_event": payload},
+      token: token,
+    );
+    if (res.statusCode == 200) {
+      return _parseSubEventResponse(res.body);
+    }
+    throw Exception("Failed to update segment (${res.statusCode})");
+  }
+
+  Future<void> deleteSubEvent({
+    required String eventId,
+    required String subEventId,
+  }) async {
+    final token = await _authService.getToken();
+    if (token == null) throw Exception("No token found. Please log in.");
+    final res = await _client.delete(
+      "/events/$eventId/sub_events/$subEventId",
+      token: token,
+    );
+    if (res.statusCode != 204) {
+      throw Exception("Failed to delete segment (${res.statusCode})");
+    }
+  }
+
+  Map<String, dynamic> _buildSubEventPayload({
+    required String title,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? location,
+    String? notes,
+    bool includeNulls = false,
+  }) {
+    final payload = <String, dynamic>{
+      "title": title.trim(),
+    };
+    void setField(String key, dynamic value) {
+      if (value == null) {
+        if (includeNulls) payload[key] = null;
+      } else {
+        payload[key] = value;
+      }
+    }
+
+    setField("start_time", startTime?.toIso8601String());
+    setField("end_time", endTime?.toIso8601String());
+    final loc = location?.trim();
+    final note = notes?.trim();
+    setField("location", loc?.isNotEmpty == true ? loc : null);
+    setField("notes", note?.isNotEmpty == true ? note : null);
+    return payload;
+  }
+
+  EventSubEvent _parseSubEventResponse(String body) {
+    final decoded = jsonDecode(body);
+    final data =
+        decoded is Map<String, dynamic> ? decoded['data'] ?? decoded : decoded;
+    if (data is Map<String, dynamic>) {
+      return EventSubEvent.fromJson(data);
+    }
+    throw Exception("Unexpected segment response");
+  }
 }

@@ -11,11 +11,15 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
+import 'package:google_places_flutter/model/prediction.dart';
 import 'edit_event.dart';
 
 import '../models/event.dart';
 import '../models/event_participation.dart';
 import '../repositories/event_repository.dart';
+import '../services/secrets.dart';
 import '../utils/rsvp_helper.dart';
 import 'event_comments_screen.dart';
 
@@ -515,6 +519,425 @@ class _MediaTile extends StatelessWidget {
   }
 }
 
+class _SubEventTile extends StatelessWidget {
+  final EventSubEvent segment;
+  final int index;
+  final bool isHost;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final void Function(String location)? onLocationTap;
+
+  const _SubEventTile({
+    required this.segment,
+    required this.index,
+    required this.isHost,
+    this.onEdit,
+    this.onDelete,
+    this.onLocationTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final start = segment.startTime;
+    final end = segment.endTime;
+    final dateLabel = start != null
+        ? DateFormat("MMM d").format(start)
+        : (end != null ? DateFormat("MMM d").format(end) : "Schedule");
+    final timeLabel = start != null
+        ? (end != null
+            ? "${DateFormat("HH:mm").format(start)} – ${DateFormat("HH:mm").format(end)}"
+            : DateFormat("HH:mm").format(start))
+        : "Time TBA";
+    final location = segment.location?.trim();
+    final notes = segment.notes?.trim();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                dateLabel,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                timeLabel,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              color: cs.surface.withOpacity(0.5),
+              border: Border.all(color: cs.outline.withOpacity(0.15)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Center(
+                        child: Text(
+                          index.toString(),
+                          style: TextStyle(
+                            color: cs.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        segment.title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    if (isHost && (onEdit != null || onDelete != null)) ...[
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        color: cs.primary,
+                        onPressed: onEdit,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        color: cs.error,
+                        onPressed: onDelete,
+                      ),
+                    ],
+                  ],
+                ),
+                if (location != null && location.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () => onLocationTap?.call(location),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.place_outlined,
+                              size: 14, color: cs.primary),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              location,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(color: cs.primary),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (notes != null && notes.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    notes,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SubEventFormValue {
+  final String title;
+  final DateTime? startTime;
+  final DateTime? endTime;
+  final String? location;
+  final String? notes;
+
+  const _SubEventFormValue({
+    required this.title,
+    required this.startTime,
+    required this.endTime,
+    required this.location,
+    required this.notes,
+  });
+}
+
+class _SubEventFormSheet extends StatefulWidget {
+  final EventSubEvent? initial;
+  final String? googleApiKey;
+  final DateTime fallbackDate;
+
+  const _SubEventFormSheet({
+    required this.initial,
+    required this.googleApiKey,
+    required this.fallbackDate,
+  });
+
+  @override
+  State<_SubEventFormSheet> createState() => _SubEventFormSheetState();
+}
+
+class _SubEventFormSheetState extends State<_SubEventFormSheet> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _locationController;
+  late final TextEditingController _notesController;
+  final _formKey = GlobalKey<FormState>();
+  DateTime? _start;
+  DateTime? _end;
+  bool _saving = false;
+  String? _timeError;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.initial?.title ?? '');
+    _locationController =
+        TextEditingController(text: widget.initial?.location ?? '');
+    _notesController =
+        TextEditingController(text: widget.initial?.notes ?? '');
+    _start = widget.initial?.startTime;
+    _end = widget.initial?.endTime;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _locationController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<DateTime?> _pickDateTime(DateTime? current) async {
+    final seed = current ?? widget.fallbackDate;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: seed,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (date == null) return current;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(seed),
+    );
+    if (time == null) {
+      return DateTime(date.year, date.month, date.day, seed.hour, seed.minute);
+    }
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  void _handleSave() {
+    if (_saving) return;
+    if (!_formKey.currentState!.validate()) return;
+    if (_start != null && _end != null && _end!.isBefore(_start!)) {
+      setState(() => _timeError = "End time must come after start time.");
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _timeError = null;
+    });
+    Navigator.of(context).pop(
+      _SubEventFormValue(
+        title: _titleController.text.trim(),
+        startTime: _start,
+        endTime: _end,
+        location: _locationController.text.trim().isNotEmpty
+            ? _locationController.text.trim()
+            : null,
+        notes: _notesController.text.trim().isNotEmpty
+            ? _notesController.text.trim()
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildLocationField() {
+    if (widget.googleApiKey == null || widget.googleApiKey!.isEmpty) {
+      return TextFormField(
+        controller: _locationController,
+        decoration: const InputDecoration(
+          labelText: "Location",
+          border: OutlineInputBorder(),
+        ),
+      );
+    }
+
+    return GooglePlaceAutoCompleteTextField(
+      textEditingController: _locationController,
+      googleAPIKey: widget.googleApiKey!,
+      inputDecoration: const InputDecoration(
+        labelText: "Location",
+        border: OutlineInputBorder(),
+      ),
+      debounceTime: 400,
+      isLatLngRequired: false,
+      itemClick: (Prediction prediction) {
+        _locationController.text = prediction.description ?? "";
+        _locationController.selection = TextSelection.fromPosition(
+          TextPosition(offset: prediction.description?.length ?? 0),
+        );
+      },
+      getPlaceDetailWithLatLng: (_) {},
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        24,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.initial == null ? "Add segment" : "Edit segment",
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: "Title",
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return "Title is required";
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildLocationField(),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked = await _pickDateTime(_start);
+                      if (picked != null) {
+                        setState(() => _start = picked);
+                      }
+                    },
+                    icon: const Icon(Icons.play_arrow_outlined),
+                    label: Text(
+                      _start != null
+                          ? DateFormat("MMM d • HH:mm").format(_start!)
+                          : "Start time",
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked = await _pickDateTime(_end);
+                      if (picked != null) {
+                        setState(() => _end = picked);
+                      }
+                    },
+                    icon: const Icon(Icons.flag_outlined),
+                    label: Text(
+                      _end != null
+                          ? DateFormat("MMM d • HH:mm").format(_end!)
+                          : "End time",
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_start != null || _end != null)
+              TextButton(
+                onPressed: () => setState(() {
+                  _start = null;
+                  _end = null;
+                }),
+                child: const Text("Clear times"),
+              ),
+            if (_timeError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _timeError!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _notesController,
+              minLines: 3,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: "Notes",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _handleSave,
+                child: Text(widget.initial == null ? "Add segment" : "Save"),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class EventScreen extends StatefulWidget {
   final Event event;
   final String currentUserId;
@@ -540,6 +963,10 @@ class _EventScreenState extends State<EventScreen>
 
   YoutubePlayerController? _ytController;
   late AnimationController _animCtrl;
+  String? _googleApiKey;
+  List<EventSubEvent>? _subEventOverride;
+  bool _subEventsLoading = false;
+  bool _subEventsRequested = false;
 
   @override
   void initState() {
@@ -629,6 +1056,144 @@ class _EventScreenState extends State<EventScreen>
     );
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
+    }
+  }
+
+  Future<void> _refreshEvent() async {
+    setState(() {
+      _subEventOverride = null;
+      _subEventsRequested = false;
+      _subEventsLoading = false;
+      _eventFuture = _repo.fetchEvent(context, widget.event.id);
+    });
+  }
+
+  Future<String?> _ensureGoogleApiKey() async {
+    if (_googleApiKey != null) return _googleApiKey;
+    final key = await SecretsService.getGoogleApiKey();
+    if (mounted) {
+      setState(() => _googleApiKey = key);
+    } else {
+      _googleApiKey = key;
+    }
+    return _googleApiKey;
+  }
+
+  void _maybeLoadSubEvents(Event event) {
+    if (_subEventsRequested || event.subEvents.isNotEmpty) return;
+    _subEventsRequested = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _subEventsLoading = true);
+    });
+    _repo.fetchSubEvents(event.id).then((segments) {
+      if (!mounted) return;
+      setState(() {
+        _subEventOverride = segments;
+        _subEventsLoading = false;
+      });
+    }).catchError((error) {
+      if (!mounted) return;
+      debugPrint("Failed to load segments: $error");
+      setState(() => _subEventsLoading = false);
+    });
+  }
+
+  Future<void> _openSubEventForm(
+    Event event, {
+    EventSubEvent? initial,
+  }) async {
+    await _ensureGoogleApiKey();
+    final result = await showModalBottomSheet<_SubEventFormValue>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _SubEventFormSheet(
+        initial: initial,
+        googleApiKey: _googleApiKey,
+        fallbackDate: initial?.startTime ?? event.startTime,
+      ),
+    );
+    if (result == null) return;
+
+    try {
+      if (initial == null) {
+        await _repo.createSubEvent(
+          eventId: event.id,
+          title: result.title,
+          startTime: result.startTime,
+          endTime: result.endTime,
+          location: result.location,
+          notes: result.notes,
+        );
+      } else {
+        await _repo.updateSubEvent(
+          eventId: event.id,
+          subEventId: initial.id,
+          title: result.title,
+          startTime: result.startTime,
+          endTime: result.endTime,
+          location: result.location,
+          notes: result.notes,
+        );
+      }
+      if (!mounted) return;
+      await _refreshEvent();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            initial == null ? "Segment added" : "Segment updated",
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to save segment: $e")),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteSubEvent(
+    Event event,
+    EventSubEvent subEvent,
+  ) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Remove segment?"),
+            content: Text(
+              "Remove \"${subEvent.title}\" from the timeline?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(ctx).colorScheme.error,
+                ),
+                child: const Text("Delete"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+
+    try {
+      await _repo.deleteSubEvent(eventId: event.id, subEventId: subEvent.id);
+      if (!mounted) return;
+      await _refreshEvent();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Segment removed")),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to delete segment: $e")),
+      );
     }
   }
 
@@ -819,6 +1384,9 @@ class _EventScreenState extends State<EventScreen>
     final hostDisplay = hostName ?? (hostEmail.isNotEmpty ? hostEmail : null);
     final description = event.description.trim();
     final commentsCount = event.comments?.length ?? 0;
+    final isHost = event.user?.id == widget.currentUserId;
+    final subEvents = _subEventOverride ?? event.subEvents;
+    final showSegmentsLoader = _subEventsLoading && subEvents.isEmpty;
 
     Widget hostSection() {
       if (event.user == null || hostDisplay == null) {
@@ -955,6 +1523,19 @@ class _EventScreenState extends State<EventScreen>
       children.add(hostCard);
     }
 
+    if (isHost || subEvents.isNotEmpty || showSegmentsLoader) {
+      children.add(const SizedBox(height: 20));
+      children.add(
+        _buildSubEventsCard(
+          context: context,
+          event: event,
+          segments: subEvents,
+          isHost: isHost,
+          isLoading: showSegmentsLoader,
+        ),
+      );
+    }
+
     children.addAll([
       const SizedBox(height: 20),
       _SurfaceCard(
@@ -1000,6 +1581,89 @@ class _EventScreenState extends State<EventScreen>
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
       physics: const BouncingScrollPhysics(),
       children: children,
+    );
+  }
+
+  Widget _buildSubEventsCard({
+    required BuildContext context,
+    required Event event,
+    required List<EventSubEvent> segments,
+    required bool isHost,
+    required bool isLoading,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final sorted = [...segments];
+    sorted.sort((a, b) {
+      final posA = a.position ?? 0;
+      final posB = b.position ?? 0;
+      if (posA != posB) return posA.compareTo(posB);
+      final startA = a.startTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final startB = b.startTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return startA.compareTo(startB);
+    });
+
+    return _SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(
+            icon: Icons.timeline_rounded,
+            label: "Timeline",
+            color: cs.primary,
+          ),
+          const SizedBox(height: 16),
+          if (sorted.isEmpty && isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (sorted.isEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "No segments yet.",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                if (isHost)
+                  FilledButton.tonalIcon(
+                    onPressed: () => _openSubEventForm(event),
+                    icon: const Icon(Icons.add),
+                    label: const Text("Add segment"),
+                  ),
+              ],
+            )
+          else
+            Column(
+              children: [
+                for (var i = 0; i < sorted.length; i++) ...[
+                  _SubEventTile(
+                    index: i + 1,
+                    segment: sorted[i],
+                    isHost: isHost,
+                    onEdit: isHost
+                        ? () => _openSubEventForm(event, initial: sorted[i])
+                        : null,
+                    onDelete: isHost
+                        ? () => _confirmDeleteSubEvent(event, sorted[i])
+                        : null,
+                    onLocationTap: (loc) => _openMaps(loc),
+                  ),
+                  if (i != sorted.length - 1) const SizedBox(height: 12),
+                ],
+                if (isHost)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => _openSubEventForm(event),
+                      icon: const Icon(Icons.add),
+                      label: const Text("Add another"),
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      ),
     );
   }
 
@@ -1571,6 +2235,7 @@ class _EventScreenState extends State<EventScreen>
           }
 
           final e = snapshot.data!;
+          _maybeLoadSubEvents(e);
           final participations = e.participations ?? [];
           final displayParticipations = participations.take(8).toList();
           final remainingCount = participations.length > 8
