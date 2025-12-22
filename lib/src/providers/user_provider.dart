@@ -1,19 +1,14 @@
-// lib/providers/user_provider.dart
-import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../models/user.dart';
 
-class UserProvider extends ChangeNotifier {
-  User? _user;
+class UserController extends StateNotifier<User?> {
+  UserController() : super(null);
 
-  User? get user => _user;
+  void setUser(User user) => state = user;
 
-  void setUser(User user) {
-    _user = user;
-    notifyListeners();
-  }
-
-  void clearUser() {
-    _user = null;
-    notifyListeners();
-  }
+  void clearUser() => state = null;
 }
+
+final userProvider =
+    StateNotifierProvider<UserController, User?>((ref) => UserController());

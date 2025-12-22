@@ -1,7 +1,7 @@
 // lib/screens/events_list.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../repositories/event_repository.dart';
 import '../models/event.dart';
@@ -9,14 +9,15 @@ import '../providers/user_provider.dart';
 import 'event.dart';
 import 'create_event.dart';
 
-class EventsListScreen extends StatefulWidget {
+class EventsListScreen extends ConsumerStatefulWidget {
   const EventsListScreen({super.key});
 
   @override
-  State<EventsListScreen> createState() => _EventsListScreenState();
+  ConsumerState<EventsListScreen> createState() => _EventsListScreenState();
 }
 
-class _EventsListScreenState extends State<EventsListScreen> {
+class _EventsListScreenState extends ConsumerState<EventsListScreen>
+    with AutomaticKeepAliveClientMixin {
   final EventRepository _repo = EventRepository();
   late Future<List<Event>> _eventsFuture;
 
@@ -36,8 +37,9 @@ class _EventsListScreenState extends State<EventsListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final cs = Theme.of(context).colorScheme;
-    final currentUser = Provider.of<UserProvider>(context).user;
+    final currentUser = ref.watch(userProvider);
     final currentUserId = currentUser?.id ?? "";
 
     return Scaffold(
@@ -223,11 +225,6 @@ class _EventsListScreenState extends State<EventsListScreen> {
                 ],
               ),
             ],
-          ),
-          IconButton(
-            onPressed: _refreshEvents,
-            tooltip: "Refresh",
-            icon: Icon(Icons.refresh_rounded, color: color),
           ),
         ],
       ),
@@ -664,4 +661,7 @@ class _EventsListScreenState extends State<EventsListScreen> {
         return cs.onSurfaceVariant;
     }
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }

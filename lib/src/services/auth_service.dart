@@ -2,13 +2,10 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'api_client.dart';
 import '../models/user.dart';
-import '../providers/user_provider.dart';
 
 class AuthService {
   final ApiClient _client = ApiClient();
@@ -23,7 +20,7 @@ class AuthService {
   }
 
   /// --- Email/Password login ---
-  Future<bool> login(String email, String password, BuildContext context) async {
+  Future<User?> login(String email, String password) async {
     final res = await _client.post("/sessions", {
       "email": email,
       "password": password,
@@ -39,22 +36,20 @@ class AuthService {
 
         // Fetch and set current user
         final user = await getCurrentUser();
-        if (user != null) {
-          Provider.of<UserProvider>(context, listen: false).setUser(user);
-        }
+        if (user == null) return null;
 
         // 🚀 also send FCM token with platform
         await sendFcmTokenToBackend();
         _listenForFcmTokenRefresh();
 
-        return true;
+        return user;
       }
     }
-    return false;
+    return null;
   }
 
   /// --- Google login ---
-  Future<bool> googleLogin(String idToken, BuildContext context) async {
+  Future<User?> googleLogin(String idToken) async {
     final url = Uri.parse("https://happenhub.co/users/google_mobile_login");
 
     final res = await http.post(
@@ -72,20 +67,18 @@ class AuthService {
         await _saveTokens(token, refreshToken: refreshToken);
 
         final user = await getCurrentUser();
-        if (user != null) {
-          Provider.of<UserProvider>(context, listen: false).setUser(user);
-        }
+        if (user == null) return null;
 
         // 🚀 also send FCM token with platform
         await sendFcmTokenToBackend();
         _listenForFcmTokenRefresh();
 
-        return true;
+        return user;
       }
     } else {
       print("❌ Google login failed: ${res.statusCode} - ${res.body}");
     }
-    return false;
+    return null;
   }
 
   /// --- Send FCM token to backend ---
@@ -153,13 +146,9 @@ class AuthService {
     return token != null;
   }
 
-  Future<void> logout([BuildContext? context]) async {
+  Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("token");
     await prefs.remove("refresh_token");
-
-    if (context != null) {
-      Provider.of<UserProvider>(context, listen: false).clearUser();
-    }
   }
 }

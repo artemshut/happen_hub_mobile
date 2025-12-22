@@ -14,17 +14,25 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
+  final PageStorageBucket _pageStorageBucket = PageStorageBucket();
+
   final List<Widget> _pages = const [
-    DashboardScreen(),
-    EventsListScreen(),
-    GroupsScreen(),
-    ProfileScreen(),
+    DashboardScreen(key: PageStorageKey("dashboard")),
+    EventsListScreen(key: PageStorageKey("events")),
+    GroupsScreen(key: PageStorageKey("groups")),
+    ProfileScreen(key: PageStorageKey("profile")),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_selectedIndex],
+      body: PageStorage(
+        bucket: _pageStorageBucket,
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: _pages,
+        ),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {

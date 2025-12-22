@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../models/user.dart';
 import '../models/mission.dart';
@@ -8,15 +8,17 @@ import 'plans_screen.dart';
 import 'login.dart';
 import '../services/auth_service.dart';
 import '../providers/theme_provider.dart';
+import '../providers/user_provider.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen>
+    with AutomaticKeepAliveClientMixin {
   final AuthService _authService = AuthService();
   final MissionRepository _missionRepository = MissionRepository();
   User? _user;
@@ -63,6 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _signOut(BuildContext context) async {
     await _authService.logout(); // ✅ clear "token" & "refresh_token"
+    ref.read(userProvider.notifier).clearUser();
 
     if (context.mounted) {
       Navigator.of(context).pushAndRemoveUntil(
@@ -74,6 +77,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final cs = Theme.of(context).colorScheme;
 
     if (_user == null) {
@@ -245,6 +249,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }
 
 class _SectionHeading extends StatelessWidget {
@@ -542,10 +549,12 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-class _ThemeToggleCard extends StatelessWidget {
+class _ThemeToggleCard extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeState = ref.watch(themeControllerProvider);
+    final mode = themeState.value ?? ThemeMode.dark;
+    final isDark = mode == ThemeMode.dark;
     final cs = Theme.of(context).colorScheme;
 
     return Container(
@@ -557,15 +566,14 @@ class _ThemeToggleCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(themeProvider.isDark ? Icons.dark_mode : Icons.light_mode,
-              color: cs.primary),
+          Icon(isDark ? Icons.dark_mode : Icons.light_mode, color: cs.primary),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  themeProvider.isDark ? "Dark mode" : "Light mode",
+                  isDark ? "Dark mode" : "Light mode",
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -583,9 +591,12 @@ class _ThemeToggleCard extends StatelessWidget {
             ),
           ),
           Switch(
-            value: themeProvider.isDark,
+            value: isDark,
             activeColor: cs.primary,
-            onChanged: (_) => themeProvider.toggleTheme(),
+            onChanged: themeState.isLoading
+                ? null
+                : (_) =>
+                    ref.read(themeControllerProvider.notifier).toggleTheme(),
           ),
         ],
       ),

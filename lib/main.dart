@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
@@ -8,7 +8,6 @@ import 'src/theme.dart';
 import 'src/screens/splash_screen.dart';
 import 'src/utils/page_transition.dart';
 import 'src/services/secrets.dart';
-import 'src/providers/user_provider.dart';
 import 'src/providers/theme_provider.dart';
 
 // 🔔 Background message handler
@@ -30,17 +29,17 @@ Future<void> main() async {
   // Setup FCM background handling
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  runApp(const HappenHubApp());
+  runApp(const ProviderScope(child: HappenHubApp()));
 }
 
-class HappenHubApp extends StatefulWidget {
+class HappenHubApp extends ConsumerStatefulWidget {
   const HappenHubApp({super.key});
 
   @override
-  State<HappenHubApp> createState() => _HappenHubAppState();
+  ConsumerState<HappenHubApp> createState() => _HappenHubAppState();
 }
 
-class _HappenHubAppState extends State<HappenHubApp> {
+class _HappenHubAppState extends ConsumerState<HappenHubApp> {
   @override
   void initState() {
     super.initState();
@@ -72,40 +71,46 @@ class _HappenHubAppState extends State<HappenHubApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-      ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, _) {
-          if (!themeProvider.isLoaded) {
-            return const SizedBox();
-          }
+    final themeMode = ref.watch(themeControllerProvider);
 
-          final pageTransitions = PageTransitionsTheme(
-            builders: {
-              TargetPlatform.android: CustomPageTransitionBuilder(),
-              TargetPlatform.iOS: CustomPageTransitionBuilder(),
-              TargetPlatform.macOS: CustomPageTransitionBuilder(),
-              TargetPlatform.windows: CustomPageTransitionBuilder(),
-              TargetPlatform.linux: CustomPageTransitionBuilder(),
-            },
-          );
+    final pageTransitions = PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CustomPageTransitionBuilder(),
+        TargetPlatform.iOS: CustomPageTransitionBuilder(),
+        TargetPlatform.macOS: CustomPageTransitionBuilder(),
+        TargetPlatform.windows: CustomPageTransitionBuilder(),
+        TargetPlatform.linux: CustomPageTransitionBuilder(),
+      },
+    );
 
-          return MaterialApp(
-            title: 'HappenHub',
-            theme: AppTheme.light.copyWith(
-              pageTransitionsTheme: pageTransitions,
-            ),
-            darkTheme: AppTheme.dark.copyWith(
-              pageTransitionsTheme: pageTransitions,
-            ),
-            themeMode: themeProvider.themeMode,
-            debugShowCheckedModeBanner: false,
-            home: const SplashScreen(),
-          );
-        },
+    return themeMode.when(
+      data: (mode) => MaterialApp(
+        title: 'HappenHub',
+        theme: AppTheme.light.copyWith(
+          pageTransitionsTheme: pageTransitions,
+        ),
+        darkTheme: AppTheme.dark.copyWith(
+          pageTransitionsTheme: pageTransitions,
+        ),
+        themeMode: mode,
+        debugShowCheckedModeBanner: false,
+        home: const SplashScreen(),
+      ),
+      loading: () => MaterialApp(
+        title: 'HappenHub',
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        home: const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+      error: (error, _) => MaterialApp(
+        title: 'HappenHub',
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        home: Scaffold(
+          body: Center(child: Text('Failed to load theme: $error')),
+        ),
       ),
     );
   }

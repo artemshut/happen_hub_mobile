@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../services/auth_service.dart';
 import '../services/secrets.dart';
 import 'main_screen.dart';
+import '../providers/user_provider.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -42,15 +44,15 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
-    final success = await _authService.login(
+    final user = await _authService.login(
       _emailController.text.trim(),
       _passwordController.text.trim(),
-      context, // ✅ Pass context here
     );
 
     setState(() => _isLoading = false);
 
-    if (success && mounted) {
+    if (user != null && mounted) {
+      ref.read(userProvider.notifier).setUser(user);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainScreen()),
       );
@@ -78,9 +80,10 @@ class _LoginScreenState extends State<LoginScreen> {
       final idToken = auth.idToken;
       if (idToken == null) throw Exception("No ID token from Google");
 
-      final success = await _authService.googleLogin(idToken, context);
+      final user = await _authService.googleLogin(idToken);
 
-      if (success && mounted) {
+      if (user != null && mounted) {
+        ref.read(userProvider.notifier).setUser(user);
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const MainScreen()),
         );

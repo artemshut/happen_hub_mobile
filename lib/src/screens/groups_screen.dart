@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/group.dart';
 import '../models/user.dart';
 import '../providers/user_provider.dart';
 import '../repositories/group_repository.dart';
 
-class GroupsScreen extends StatefulWidget {
+class GroupsScreen extends ConsumerStatefulWidget {
   const GroupsScreen({super.key});
 
   @override
-  State<GroupsScreen> createState() => _GroupsScreenState();
+  ConsumerState<GroupsScreen> createState() => _GroupsScreenState();
 }
 
-class _GroupsScreenState extends State<GroupsScreen> {
+class _GroupsScreenState extends ConsumerState<GroupsScreen>
+    with AutomaticKeepAliveClientMixin {
   final GroupRepository _repository = GroupRepository();
   late Future<List<Group>> _groupsFuture;
 
@@ -31,8 +32,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final cs = Theme.of(context).colorScheme;
-    final currentUser = Provider.of<UserProvider>(context).user;
+    final currentUser = ref.watch(userProvider);
     final currentUserId = currentUser?.id;
 
     return Scaffold(
@@ -250,6 +252,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
       },
     );
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }
 
 class _SectionHeader extends StatelessWidget {

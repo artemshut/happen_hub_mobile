@@ -1,6 +1,6 @@
 // lib/screens/dashboard.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
@@ -11,14 +11,15 @@ import '../providers/user_provider.dart';
 import 'create_event.dart';
 import 'event.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with AutomaticKeepAliveClientMixin {
   final EventRepository _repo = EventRepository();
   late Future<List<Event>> _eventsFuture;
   final AuthService _authService = AuthService();
@@ -61,6 +62,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return "All day";
   }
+
+  Future<void> _refreshDashboard() async {
+    final future = _repo.fetchEvents(context);
+    setState(() {
+      _eventsFuture = future;
+    });
+    await future;
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 
   DateTime _eventEndTime(Event event) => event.endTime ?? event.startTime;
 
@@ -296,8 +308,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final event = await _repo.fetchEvent(context, eventId);
       if (!mounted) return;
-      final userId =
-          Provider.of<UserProvider>(context, listen: false).user?.id ?? "";
+      final userId = ref.read(userProvider)?.id ?? "";
 
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -341,8 +352,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final cs = Theme.of(context).colorScheme;
-    final currentUser = Provider.of<UserProvider>(context).user;
+    final currentUser = ref.watch(userProvider);
     final currentUserId = currentUser?.id ?? "";
 
     return Scaffold(
@@ -363,10 +375,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         icon: const Icon(Icons.add),
         label: const Text("Create"),
       ),
-      body: CustomScrollView(
-        slivers: [
-          // 🌈 Gradient AppBar
-          SliverAppBar(
+      body: RefreshIndicator(
+        onRefresh: _refreshDashboard,
+        color: cs.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // 🌈 Gradient AppBar
+            SliverAppBar(
             expandedHeight: 100,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
@@ -1022,7 +1038,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
