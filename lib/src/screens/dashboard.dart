@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../services/auth_service.dart';
 import '../models/event.dart';
+import '../models/user.dart';
 import '../repositories/event_repository.dart';
 import '../providers/user_provider.dart';
 import 'create_event.dart';
@@ -20,6 +21,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with AutomaticKeepAliveClientMixin {
+  static const int _xpPerLevel = 1000;
   final EventRepository _repo = EventRepository();
   late Future<List<Event>> _eventsFuture;
   final AuthService _authService = AuthService();
@@ -90,6 +92,64 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       return "Hey @$handle, ready for tonight?";
     }
     return "Hey there, ready for tonight?";
+  }
+
+  int _levelFromXp(int xp) => (xp ~/ _xpPerLevel) + 1;
+
+  double _levelProgress(int xp) =>
+      ((xp % _xpPerLevel) / _xpPerLevel).clamp(0.0, 1.0);
+
+  Widget _buildLevelBadge(User user, ColorScheme cs) {
+    final level = _levelFromXp(user.xp);
+    final progress = _levelProgress(user.xp);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Level $level",
+          style: TextStyle(
+            color: cs.onPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: cs.onPrimary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: cs.onPrimary.withOpacity(0.3),
+                ),
+              ),
+              child: Text(
+                "XP ${user.xp}",
+                style: TextStyle(
+                  color: cs.onPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: cs.onPrimary.withOpacity(0.15),
+                  valueColor: AlwaysStoppedAnimation<Color>(cs.secondary),
+                  minHeight: 6,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _buildCalendarDay(
@@ -410,6 +470,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       color: cs.onPrimary.withOpacity(0.9),
                     ),
                   ),
+                  if (currentUser != null) ...[
+                    const SizedBox(height: 8),
+                    _buildLevelBadge(currentUser, cs),
+                  ],
                 ],
               ),
               background: Container(
