@@ -41,17 +41,17 @@ class AppTheme {
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: outline.withOpacity(0.4)),
+          side: BorderSide(color: outline.withValues(alpha: 0.4)),
         ),
-        shadowColor: Colors.black.withOpacity(0.08),
+        shadowColor: Colors.black.withValues(alpha: 0.08),
       ),
       chipTheme: base.chipTheme.copyWith(
         backgroundColor: surfaceVariant,
-        selectedColor: scheme.primary.withOpacity(0.12),
+        selectedColor: scheme.primary.withValues(alpha: 0.12),
         labelStyle: const TextStyle(color: Color(0xFF111220)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: outline.withOpacity(0.6)),
+          side: BorderSide(color: outline.withValues(alpha: 0.6)),
         ),
       ),
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
@@ -59,7 +59,7 @@ class AppTheme {
         fillColor: surfaceVariant,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: outline.withOpacity(0.5)),
+          borderSide: BorderSide(color: outline.withValues(alpha: 0.5)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -70,7 +70,7 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: const Color(0xFF111220),
-          side: BorderSide(color: outline.withOpacity(0.6)),
+          side: BorderSide(color: outline.withValues(alpha: 0.6)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -78,7 +78,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
-        indicatorColor: scheme.primary.withOpacity(0.12),
+        indicatorColor: scheme.primary.withValues(alpha: 0.12),
         elevation: 0,
         labelTextStyle: MaterialStateProperty.resolveWith(
           (states) => TextStyle(
@@ -141,17 +141,17 @@ class AppTheme {
         elevation: 1,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: outline.withOpacity(0.5)),
+          side: BorderSide(color: outline.withValues(alpha: 0.5)),
         ),
-        shadowColor: Colors.black.withOpacity(0.25),
+        shadowColor: Colors.black.withValues(alpha: 0.25),
       ),
       chipTheme: base.chipTheme.copyWith(
         backgroundColor: surfaceVariant,
-        selectedColor: scheme.primary.withOpacity(0.18),
+        selectedColor: scheme.primary.withValues(alpha: 0.18),
         labelStyle: const TextStyle(color: Colors.white),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: outline.withOpacity(0.6)),
+          side: BorderSide(color: outline.withValues(alpha: 0.6)),
         ),
       ),
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
@@ -159,7 +159,7 @@ class AppTheme {
         fillColor: surfaceVariant,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: outline.withOpacity(0.6)),
+          borderSide: BorderSide(color: outline.withValues(alpha: 0.6)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -187,7 +187,7 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white,
-          side: BorderSide(color: outline.withOpacity(0.6)),
+          side: BorderSide(color: outline.withValues(alpha: 0.6)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -195,7 +195,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: scaffold,
-        indicatorColor: scheme.primary.withOpacity(0.18),
+        indicatorColor: scheme.primary.withValues(alpha: 0.18),
         elevation: 0,
         labelTextStyle: MaterialStateProperty.resolveWith(
           (states) => TextStyle(
@@ -203,14 +203,14 @@ class AppTheme {
                 states.contains(MaterialState.selected) ? FontWeight.w600 : FontWeight.w500,
             color: states.contains(MaterialState.selected)
                 ? Colors.white
-                : Colors.white.withOpacity(0.7),
+                : Colors.white.withValues(alpha: 0.7),
           ),
         ),
         iconTheme: MaterialStateProperty.resolveWith(
           (states) => IconThemeData(
             color: states.contains(MaterialState.selected)
                 ? scheme.primary
-                : Colors.white.withOpacity(0.7),
+                : Colors.white.withValues(alpha: 0.7),
           ),
         ),
       ),

@@ -295,14 +295,14 @@ class _ComposerBar extends StatelessWidget {
                   ? "Message fellow guests..."
                   : "Sign in to join the chat",
               filled: true,
-              fillColor: colorScheme.surfaceVariant.withOpacity(0.5),
+              fillColor: colorScheme.surfaceVariant.withValues(alpha: 0.5),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+                borderSide: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+                borderSide: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
               ),
             ),
             textInputAction: TextInputAction.send,
@@ -353,7 +353,7 @@ class _ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final bubbleColor =
-        isMine ? cs.primary.withOpacity(0.85) : cs.surfaceVariant.withOpacity(0.7);
+        isMine ? cs.primary.withValues(alpha: 0.85) : cs.surfaceVariant.withValues(alpha: 0.7);
     final textColor = isMine ? cs.onPrimary : cs.onSurface;
 
     return Align(
@@ -409,7 +409,7 @@ class _ChatBubble extends StatelessWidget {
                                 .textTheme
                                 .bodySmall
                                 ?.copyWith(
-                                  color: textColor.withOpacity(0.7),
+                                  color: textColor.withValues(alpha: 0.7),
                                   fontSize: 11,
                                 ),
                           ),
@@ -435,7 +435,7 @@ class _ChatBubble extends StatelessWidget {
                                     onPressed: onDelete,
                                     icon: Icon(
                                       Icons.delete_outline_rounded,
-                                      color: textColor.withOpacity(0.7),
+                                      color: textColor.withValues(alpha: 0.7),
                                     ),
                                   ),
                           ],

@@ -119,10 +119,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: cs.onPrimary.withOpacity(0.15),
+                color: cs.onPrimary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: cs.onPrimary.withOpacity(0.3),
+                  color: cs.onPrimary.withValues(alpha: 0.3),
                 ),
               ),
               child: Text(
@@ -140,7 +140,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 borderRadius: BorderRadius.circular(999),
                 child: LinearProgressIndicator(
                   value: progress,
-                  backgroundColor: cs.onPrimary.withOpacity(0.15),
+                  backgroundColor: cs.onPrimary.withValues(alpha: 0.15),
                   valueColor: AlwaysStoppedAnimation<Color>(cs.secondary),
                   minHeight: 6,
                 ),
@@ -165,9 +165,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final hasEvents = events.isNotEmpty;
 
     final highlightFill = isSelected
-        ? cs.primary.withOpacity(0.14)
+        ? cs.primary.withValues(alpha: 0.14)
         : hasEvents
-            ? cs.primary.withOpacity(isOutside ? 0.08 : 0.12)
+            ? cs.primary.withValues(alpha: isOutside ? 0.08 : 0.12)
             : Colors.transparent;
 
     final halo = hasEvents
@@ -176,7 +176,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  cs.primary.withOpacity(0.25),
+                  cs.primary.withValues(alpha: 0.25),
                   Colors.transparent,
                 ],
                 radius: 0.8,
@@ -188,7 +188,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final textColor = isSelected
         ? cs.onSurface
         : isOutside
-            ? cs.onSurface.withOpacity(0.35)
+            ? cs.onSurface.withValues(alpha: 0.35)
             : cs.onSurface;
 
     final dots = <Widget>[];
@@ -201,11 +201,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         height: 6,
         margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
-          color: dotColor.withOpacity(0.85 - (i * 0.15)),
+          color: dotColor.withValues(alpha: 0.85 - (i * 0.15)),
           borderRadius: BorderRadius.circular(999),
           boxShadow: [
             BoxShadow(
-              color: dotColor.withOpacity(0.4),
+              color: dotColor.withValues(alpha: 0.4),
               blurRadius: 6,
               spreadRadius: 0.5,
             ),
@@ -243,14 +243,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           color: isSelected
               ? cs.primary
               : hasEvents
-                  ? cs.primary.withOpacity(isOutside ? 0.25 : 0.4)
+                  ? cs.primary.withValues(alpha: isOutside ? 0.25 : 0.4)
                   : Colors.transparent,
           width: isSelected ? 1.4 : 1,
         ),
         boxShadow: hasEvents || isSelected
             ? [
                 BoxShadow(
-                  color: cs.primary.withOpacity(isSelected ? 0.35 : 0.18),
+                  color: cs.primary.withValues(alpha: isSelected ? 0.35 : 0.18),
                   blurRadius: 18,
                   offset: const Offset(0, 10),
                 ),
@@ -329,16 +329,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       badge: true,
       sound: true,
     );
-    debugPrint("🔔 Notification permission: ${settings.authorizationStatus}");
 
     // Current FCM token
     String? token = await messaging.getToken();
-    debugPrint("📱 Initial FCM Token: $token");
     if (token != null) await _authService.sendFcmTokenToBackend();
 
     // Foreground message
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint("📩 Foreground message: ${message.notification?.title}");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message.notification?.title ?? "New message")),
@@ -348,7 +345,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     // Background → app opened by tapping notification
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint("🚀 Opened from notification: ${message.data}");
       if (message.data.containsKey("event_id")) {
         final eventId = message.data["event_id"];
         _openEventById(eventId);
@@ -376,7 +372,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ),
       );
     } catch (e) {
-      debugPrint("❌ Failed to open event $eventId: $e");
     }
   }
 
@@ -467,7 +462,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     _greetingLine(currentUser?.firstName, currentUser?.username),
                     style: TextStyle(
                       fontSize: 12,
-                      color: cs.onPrimary.withOpacity(0.9),
+                      color: cs.onPrimary.withValues(alpha: 0.9),
                     ),
                   ),
                   if (currentUser != null) ...[
@@ -549,11 +544,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(26),
                           border:
-                              Border.all(color: cs.outline.withOpacity(0.08)),
-                          color: cs.surface.withOpacity(0.65),
+                              Border.all(color: cs.outline.withValues(alpha: 0.08)),
+                          color: cs.surface.withValues(alpha: 0.65),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
+                              color: Colors.black.withValues(alpha: 0.25),
                               blurRadius: 30,
                               offset: const Offset(0, 20),
                             ),
@@ -601,10 +596,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               todayDecoration: const BoxDecoration(),
                               selectedDecoration: const BoxDecoration(),
                               weekendTextStyle: TextStyle(
-                                color: cs.onSurface.withOpacity(0.85),
+                                color: cs.onSurface.withValues(alpha: 0.85),
                               ),
                               defaultTextStyle: TextStyle(
-                                color: cs.onSurface.withOpacity(0.85),
+                                color: cs.onSurface.withValues(alpha: 0.85),
                               ),
                             ),
                             calendarBuilders: CalendarBuilders(
@@ -663,8 +658,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    cs.primary.withOpacity(0.9),
-                                    cs.secondary.withOpacity(0.85),
+                                    cs.primary.withValues(alpha: 0.9),
+                                    cs.secondary.withValues(alpha: 0.85),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
@@ -672,7 +667,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 borderRadius: BorderRadius.circular(18),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: cs.primary.withOpacity(0.25),
+                                    color: cs.primary.withValues(alpha: 0.25),
                                     blurRadius: 14,
                                     offset: const Offset(0, 8),
                                   ),
@@ -681,7 +676,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               child: ListTile(
                                 leading: CircleAvatar(
                                   backgroundColor:
-                                      Colors.white.withOpacity(0.25),
+                                      Colors.white.withValues(alpha: 0.25),
                                   child: const Icon(Icons.event, color: Colors.white),
                                 ),
                                 title: Text(
@@ -695,12 +690,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                   _eventTimeLabelForDay(
                                       e, _selectedDay ?? e.startTime),
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.85),
+                                    color: Colors.white.withValues(alpha: 0.85),
                                   ),
                                 ),
                                 trailing: Icon(
                                   Icons.chevron_right_rounded,
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: Colors.white.withValues(alpha: 0.8),
                                 ),
                                 onTap: () {
                                   Navigator.of(context).push(
@@ -746,7 +741,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               borderRadius: BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
-                                  color: cs.secondary.withOpacity(0.25),
+                                  color: cs.secondary.withValues(alpha: 0.25),
                                   blurRadius: 20,
                                   offset: const Offset(0, 16),
                                 ),
@@ -908,7 +903,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             width: double.infinity,
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: cs.surfaceVariant.withOpacity(0.6),
+                              color: cs.surfaceVariant.withValues(alpha: 0.6),
                               borderRadius: BorderRadius.circular(18),
                             ),
                             child: Text(
@@ -957,8 +952,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                               decoration: BoxDecoration(
                                                 gradient: LinearGradient(
                                                   colors: [
-                                                    cs.primary.withOpacity(0.85),
-                                                    cs.secondary.withOpacity(0.85),
+                                                    cs.primary.withValues(alpha: 0.85),
+                                                    cs.secondary.withValues(alpha: 0.85),
                                                   ],
                                                   begin: Alignment.topLeft,
                                                   end: Alignment.bottomRight,
@@ -969,7 +964,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                             decoration: BoxDecoration(
                                               gradient: LinearGradient(
                                                 colors: [
-                                                  Colors.black.withOpacity(0.7),
+                                                  Colors.black.withValues(alpha: 0.7),
                                                   Colors.transparent
                                                 ],
                                                 begin: Alignment.bottomCenter,
@@ -988,7 +983,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                                     Icon(Icons.schedule,
                                                         size: 16,
                                                         color: Colors.white
-                                                            .withOpacity(0.85)),
+                                                            .withValues(alpha: 0.85)),
                                                     const SizedBox(width: 6),
                                                     Text(
                                                       "${_formatTime(e.startTime)} • ${e.startTime.day}/${e.startTime.month}",
@@ -1127,7 +1122,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             height: 38,
             width: 38,
             decoration: BoxDecoration(
-              color: resolved.withOpacity(0.15),
+              color: resolved.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: resolved),
@@ -1185,12 +1180,12 @@ class _CategoryFilterChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             color: selected
-                ? cs.primary.withOpacity(0.16)
-                : cs.surfaceVariant.withOpacity(0.6),
+                ? cs.primary.withValues(alpha: 0.16)
+                : cs.surfaceVariant.withValues(alpha: 0.6),
             border: Border.all(
               color: selected
                   ? cs.primary
-                  : cs.outline.withOpacity(0.25),
+                  : cs.outline.withValues(alpha: 0.25),
             ),
           ),
           child: Text(

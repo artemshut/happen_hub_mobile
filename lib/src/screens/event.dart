@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -19,9 +20,11 @@ import 'edit_event.dart';
 import '../models/event.dart';
 import '../models/event_participation.dart';
 import '../repositories/event_repository.dart';
+import '../repositories/checklist_repository.dart';
 import '../services/secrets.dart';
-import '../utils/rsvp_helper.dart';
+import '../services/checklist_storage.dart';
 import 'event_comments_screen.dart';
+import '../models/event_checklist.dart';
 
 class _RsvpOption {
   final String value;
@@ -57,6 +60,18 @@ const List<_RsvpOption> _rsvpOptions = [
     color: Colors.redAccent,
   ),
 ];
+
+class _AssigneeOption {
+  final String id;
+  final String label;
+  final String? avatarUrl;
+
+  const _AssigneeOption({
+    required this.id,
+    required this.label,
+    this.avatarUrl,
+  });
+}
 
 class _SectionTitle extends StatelessWidget {
   final IconData icon;
@@ -117,12 +132,12 @@ class _HeroTagChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.45),
+        color: Colors.black.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withOpacity(0.25)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withValues(alpha: 0.25),
             blurRadius: 10,
             offset: const Offset(0, 6),
           ),
@@ -164,7 +179,7 @@ class _InfoBadge extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final accent = Color.lerp(cs.onSurface, color, 0.25) ?? cs.onSurface;
     final background = Color.alphaBlend(
-      Colors.black.withOpacity(0.65),
+      Colors.black.withValues(alpha: 0.65),
       cs.surface,
     );
     final borderColor = Color.lerp(cs.outline, accent, 0.15);
@@ -187,7 +202,7 @@ class _InfoBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor ?? cs.outline.withOpacity(0.3)),
+        border: Border.all(color: borderColor ?? cs.outline.withValues(alpha: 0.3)),
       ),
       child: content,
     );
@@ -227,9 +242,9 @@ class _DetailLine extends StatelessWidget {
       width: 46,
       height: 46,
       decoration: BoxDecoration(
-        color: cs.onSurface.withOpacity(0.04),
+        color: cs.onSurface.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline.withOpacity(0.2)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
       ),
       child: Icon(icon, size: 20, color: cs.onSurface),
     );
@@ -328,9 +343,9 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: cs.surface.withOpacity(0.35),
+        color: cs.surface.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outline.withOpacity(0.12)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
       ),
       child: Stack(
         children: [
@@ -357,7 +372,7 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      cs.surface.withOpacity(0.85),
+                      cs.surface.withValues(alpha: 0.85),
                     ],
                   ),
                 ),
@@ -425,20 +440,20 @@ class _SurfaceCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: cs.outline.withOpacity(0.18)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
         gradient:
             gradient ??
             LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                overlay ?? cs.surfaceVariant.withOpacity(0.8),
-                base ?? cs.surface.withOpacity(0.65),
+                overlay ?? cs.surfaceVariant.withValues(alpha: 0.8),
+                base ?? cs.surface.withValues(alpha: 0.65),
               ],
             ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.35),
+            color: Colors.black.withValues(alpha: 0.35),
             blurRadius: 30,
             offset: const Offset(0, 20),
           ),
@@ -477,9 +492,9 @@ class _MediaTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: cs.surface.withOpacity(0.55),
+            color: cs.surface.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: cs.outline.withOpacity(0.12)),
+            border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
           ),
           child: Row(
             children: [
@@ -583,8 +598,8 @@ class _SubEventTile extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              color: cs.surface.withOpacity(0.5),
-              border: Border.all(color: cs.outline.withOpacity(0.15)),
+              color: cs.surface.withValues(alpha: 0.5),
+              border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -596,7 +611,7 @@ class _SubEventTile extends StatelessWidget {
                       width: 26,
                       height: 26,
                       decoration: BoxDecoration(
-                        color: cs.primary.withOpacity(0.15),
+                        color: cs.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Center(
@@ -643,7 +658,7 @@ class _SubEventTile extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: cs.primary.withOpacity(0.08),
+                        color: cs.primary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Row(
@@ -938,6 +953,206 @@ class _SubEventFormSheetState extends State<_SubEventFormSheet> {
   }
 }
 
+class _ChecklistItemFormValue {
+  final String title;
+  final DateTime? dueAt;
+  final String? assigneeId;
+  final bool clearDueAt;
+  final bool clearAssignee;
+
+  const _ChecklistItemFormValue({
+    required this.title,
+    required this.dueAt,
+    required this.assigneeId,
+    this.clearDueAt = false,
+    this.clearAssignee = false,
+  });
+}
+
+class _ChecklistItemFormSheet extends StatefulWidget {
+  final EventChecklistItem? initial;
+  final List<_AssigneeOption> assignees;
+  final String title;
+
+  const _ChecklistItemFormSheet({
+    required this.initial,
+    required this.assignees,
+    required this.title,
+  });
+
+  @override
+  State<_ChecklistItemFormSheet> createState() => _ChecklistItemFormSheetState();
+}
+
+class _ChecklistItemFormSheetState extends State<_ChecklistItemFormSheet> {
+  late final TextEditingController _titleController;
+  DateTime? _dueAt;
+  String? _assigneeId;
+  bool _clearDueAt = false;
+  bool _clearAssignee = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _titleController = TextEditingController(text: initial?.title ?? "");
+    _dueAt = initial?.dueAt;
+    _assigneeId = initial?.assignee?.id;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDueDate() async {
+    final now = DateTime.now();
+    final initialDate = _dueAt ?? now;
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 5),
+      initialDate: initialDate,
+    );
+    if (date == null) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_dueAt ?? now),
+    );
+    final composed = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time?.hour ?? initialDate.hour,
+      time?.minute ?? initialDate.minute,
+    );
+    setState(() {
+      _dueAt = composed;
+      _clearDueAt = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final dueLabel = _dueAt != null
+        ? DateFormat("MMM d • h:mma").format(_dueAt!)
+        : "No due date";
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        top: 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            widget.title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(labelText: "Title"),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickDueDate,
+                  icon: const Icon(Icons.event),
+                  label: Text(dueLabel),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _dueAt = null;
+                    _clearDueAt = true;
+                  });
+                },
+                tooltip: "Clear",
+                icon: Icon(Icons.clear, color: cs.error),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String?>(
+            value: _assigneeId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: "Owner"),
+            items: [
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text("Unassigned"),
+              ),
+              ...widget.assignees.map(
+                (option) => DropdownMenuItem<String?>(
+                  value: option.id,
+                  child: Text(option.label),
+                ),
+              ),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _assigneeId = value;
+                _clearAssignee = value == null;
+              });
+            },
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () {
+                setState(() {
+                  _assigneeId = null;
+                  _clearAssignee = true;
+                });
+              },
+              child: const Text("Clear assignee"),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("Cancel"),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(
+                      _ChecklistItemFormValue(
+                        title: _titleController.text.trim(),
+                        dueAt: _dueAt,
+                        assigneeId: _assigneeId,
+                        clearDueAt: _clearDueAt,
+                        clearAssignee: _clearAssignee,
+                      ),
+                    );
+                  },
+                  child: const Text("Save"),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class EventScreen extends StatefulWidget {
   final Event event;
   final String currentUserId;
@@ -955,6 +1170,8 @@ class EventScreen extends StatefulWidget {
 class _EventScreenState extends State<EventScreen>
     with SingleTickerProviderStateMixin {
   final EventRepository _repo = EventRepository();
+  final ChecklistRepository _checklistRepo = ChecklistRepository();
+  final ChecklistStorage _checklistStorage = ChecklistStorage();
   late Future<Event> _eventFuture;
   bool _rsvpLoading = false;
   String? _pendingRsvp;
@@ -967,11 +1184,25 @@ class _EventScreenState extends State<EventScreen>
   List<EventSubEvent>? _subEventOverride;
   bool _subEventsLoading = false;
   bool _subEventsRequested = false;
+  List<EventChecklist> _checklists = const [];
+  bool _checklistsLoading = true;
+  bool _checklistsReadOnly = false;
+  String? _checklistsError;
+  List<ChecklistPendingOp> _pendingChecklistOps = const [];
+  bool _syncingChecklistOps = false;
+  final TextEditingController _newChecklistController = TextEditingController();
+  final Map<int, bool> _checklistBusy = {};
+  final Map<int, bool> _itemBusy = {};
+  final Map<int, bool> _newItemBusy = {};
+  final Map<int, String?> _checklistFieldErrors = {};
+  String? _newChecklistError;
+  bool _creatingChecklist = false;
 
   @override
   void initState() {
     super.initState();
     _eventFuture = _repo.fetchEvent(context, widget.event.id);
+    _initChecklistsState();
 
     _animCtrl = AnimationController(
       vsync: this,
@@ -984,6 +1215,7 @@ class _EventScreenState extends State<EventScreen>
     _ytController?.dispose();
     _animCtrl.dispose();
     _scrollController.dispose();
+    _newChecklistController.dispose();
     super.dispose();
   }
 
@@ -1066,6 +1298,851 @@ class _EventScreenState extends State<EventScreen>
       _subEventsLoading = false;
       _eventFuture = _repo.fetchEvent(context, widget.event.id);
     });
+    await _fetchChecklists(showSpinner: false);
+  }
+
+  void _initChecklistsState() {
+    _checklistStorage.readCache(widget.event.id).then((cached) {
+      if (!mounted) return;
+      if (cached.isNotEmpty) {
+        setState(() {
+          _checklists =
+              cached.map((c) => c.copyWith(items: _sortedItems(c.items))).toList();
+          _checklistsLoading = false;
+        });
+      }
+    });
+    _checklistStorage.readPendingOps(widget.event.id).then((pending) {
+      if (!mounted) return;
+      setState(() => _pendingChecklistOps = pending);
+    });
+    _fetchChecklists();
+  }
+
+  bool _isNetworkError(Object error) {
+    return error is SocketException ||
+        error is TimeoutException ||
+        (error is ChecklistApiException && error.statusCode == null);
+  }
+
+  Future<void> _fetchChecklists({bool showSpinner = true}) async {
+    if (showSpinner) {
+      setState(() {
+        _checklistsLoading = true;
+        _checklistsError = null;
+      });
+    }
+    try {
+      final lists = await _checklistRepo.fetchChecklists(widget.event.id);
+      final normalized = lists
+          .map((c) => c.copyWith(items: _sortedItems(c.items)))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _checklists = normalized;
+        _checklistsLoading = false;
+        _checklistsError = null;
+        _checklistsReadOnly = false;
+      });
+      await _checklistStorage.saveCache(widget.event.id, normalized);
+      await _processPendingChecklistOps();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _checklistsLoading = false;
+        _checklistsError = e.toString();
+        _checklistsReadOnly = _isNetworkError(e);
+      });
+    }
+  }
+
+  Future<void> _queueChecklistOp(ChecklistPendingOp op) async {
+    final updated = [..._pendingChecklistOps, op];
+    setState(() => _pendingChecklistOps = updated);
+    await _checklistStorage.savePendingOps(widget.event.id, updated);
+  }
+
+  Future<void> _processPendingChecklistOps() async {
+    if (_syncingChecklistOps || _pendingChecklistOps.isEmpty) return;
+    _syncingChecklistOps = true;
+    try {
+      var queue = [..._pendingChecklistOps];
+      var didSync = false;
+      while (queue.isNotEmpty) {
+        final op = queue.first;
+        final success = await _runPendingChecklistOp(op);
+        if (!success) break;
+        queue = queue.sublist(1);
+        didSync = true;
+        if (!mounted) break;
+        setState(() => _pendingChecklistOps = queue);
+        await _checklistStorage.savePendingOps(widget.event.id, queue);
+      }
+      if (didSync) {
+        await _fetchChecklists(showSpinner: false);
+      }
+    } finally {
+      _syncingChecklistOps = false;
+    }
+  }
+
+  Future<bool> _runPendingChecklistOp(ChecklistPendingOp op) async {
+    try {
+      final payload = op.payload;
+      switch (op.type) {
+        case "create_checklist":
+          await _checklistRepo.createChecklist(
+            eventId: widget.event.id,
+            title: (payload["title"] ?? "").toString(),
+          );
+          break;
+        case "update_checklist":
+          await _checklistRepo.updateChecklist(
+            eventId: widget.event.id,
+            checklistId: (payload["checklist_id"] as num).toInt(),
+            title: (payload["title"] ?? "").toString(),
+          );
+          break;
+        case "delete_checklist":
+          await _checklistRepo.deleteChecklist(
+            eventId: widget.event.id,
+            checklistId: (payload["checklist_id"] as num).toInt(),
+          );
+          break;
+        case "reorder_checklist":
+          await _checklistRepo.reorderChecklist(
+            eventId: widget.event.id,
+            checklistId: (payload["checklist_id"] as num).toInt(),
+            position: (payload["position"] as num).toInt(),
+          );
+          break;
+        case "create_item":
+          await _checklistRepo.createItem(
+            eventId: widget.event.id,
+            checklistId: (payload["checklist_id"] as num).toInt(),
+            title: (payload["title"] ?? "").toString(),
+            dueAt: payload["due_at"] != null
+                ? DateTime.tryParse(payload["due_at"].toString())
+                : null,
+            assigneeId: payload["assignee_id"]?.toString(),
+          );
+          break;
+        case "update_item":
+          await _checklistRepo.updateItem(
+            eventId: widget.event.id,
+            checklistId: (payload["checklist_id"] as num).toInt(),
+            itemId: (payload["item_id"] as num).toInt(),
+            title: payload["title"]?.toString(),
+            dueAt: payload["due_at"] != null
+                ? DateTime.tryParse(payload["due_at"].toString())
+                : null,
+            clearDueAt: payload["clear_due_at"] == true,
+            assigneeId: payload["assignee_id"]?.toString(),
+            clearAssignee: payload["clear_assignee"] == true,
+          );
+          break;
+        case "delete_item":
+          await _checklistRepo.deleteItem(
+            eventId: widget.event.id,
+            checklistId: (payload["checklist_id"] as num).toInt(),
+            itemId: (payload["item_id"] as num).toInt(),
+          );
+          break;
+        case "reorder_item":
+          await _checklistRepo.reorderItem(
+            eventId: widget.event.id,
+            checklistId: (payload["checklist_id"] as num).toInt(),
+            itemId: (payload["item_id"] as num).toInt(),
+            position: (payload["position"] as num).toInt(),
+          );
+          break;
+        case "toggle_item":
+          await _checklistRepo.toggleItem(
+            eventId: widget.event.id,
+            checklistId: (payload["checklist_id"] as num).toInt(),
+            itemId: (payload["item_id"] as num).toInt(),
+          );
+          break;
+        default:
+          return true;
+      }
+      return true;
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        return false;
+      }
+      return true;
+    }
+  }
+
+  Future<void> _saveChecklistSnapshot(List<EventChecklist> next) async {
+    if (!mounted) return;
+    setState(() {
+      _checklists = next;
+    });
+    await _checklistStorage.saveCache(widget.event.id, next);
+  }
+
+  ChecklistProgress _recalculateProgress(
+    EventChecklist checklist,
+    List<EventChecklistItem> items,
+  ) {
+    final completed = items.where((item) => item.completed).length;
+    return ChecklistProgress(completed: completed, total: items.length);
+  }
+
+  List<EventChecklist> _withChecklistPositions(
+    List<EventChecklist> lists,
+  ) {
+    return [
+      for (var i = 0; i < lists.length; i++)
+        lists[i].copyWith(position: i + 1),
+    ];
+  }
+
+  List<EventChecklistItem> _withItemPositions(
+    List<EventChecklistItem> items,
+  ) {
+    return [
+      for (var i = 0; i < items.length; i++)
+        items[i].copyWith(position: i + 1),
+    ];
+  }
+
+  List<EventChecklistItem> _sortedItems(List<EventChecklistItem> items) {
+    final next = [...items];
+    next.sort((a, b) => a.position.compareTo(b.position));
+    return next;
+  }
+
+  Future<void> _submitNewChecklist() async {
+    final title = _newChecklistController.text.trim();
+    if (title.isEmpty) {
+      setState(() => _newChecklistError = "Add a title");
+      return;
+    }
+    setState(() {
+      _creatingChecklist = true;
+      _newChecklistError = null;
+    });
+    try {
+      final created = await _checklistRepo.createChecklist(
+        eventId: widget.event.id,
+        title: title,
+      );
+      final next = [..._checklists, created]
+        ..sort((a, b) => a.position.compareTo(b.position));
+      await _saveChecklistSnapshot(next);
+      if (!mounted) return;
+      setState(() {
+        _creatingChecklist = false;
+        _newChecklistController.clear();
+      });
+    } on ChecklistApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _creatingChecklist = false;
+        _newChecklistError =
+            e.fieldErrors?['title']?.join(", ") ?? e.message;
+      });
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        await _queueChecklistOp(
+          ChecklistPendingOp(
+            type: "create_checklist",
+            payload: {"title": title},
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (!mounted) return;
+        setState(() {
+          _creatingChecklist = false;
+          _newChecklistController.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Checklist queued. We'll sync when you're online."),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        setState(() => _creatingChecklist = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to create checklist: $e")),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateChecklistTitle(
+    EventChecklist checklist,
+    String title,
+  ) async {
+    if (title.trim().isEmpty) return;
+    setState(() {
+      _checklistBusy[checklist.id] = true;
+      _checklistFieldErrors.remove(checklist.id);
+    });
+    try {
+      final updated = await _checklistRepo.updateChecklist(
+        eventId: widget.event.id,
+        checklistId: checklist.id,
+        title: title,
+      );
+      final next = _checklists
+          .map((c) => c.id == checklist.id ? updated : c)
+          .toList()
+        ..sort((a, b) => a.position.compareTo(b.position));
+      await _saveChecklistSnapshot(next);
+      if (!mounted) return;
+      setState(() => _checklistBusy.remove(checklist.id));
+    } on ChecklistApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _checklistBusy.remove(checklist.id);
+        _checklistFieldErrors[checklist.id] =
+            e.fieldErrors?['title']?.join(", ") ?? e.message;
+      });
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        await _queueChecklistOp(
+          ChecklistPendingOp(
+            type: "update_checklist",
+            payload: {
+              "checklist_id": checklist.id,
+              "title": title,
+            },
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (!mounted) return;
+        setState(() => _checklistBusy.remove(checklist.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Title change queued until you're online."),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        setState(() => _checklistBusy.remove(checklist.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to update: $e")),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteChecklist(EventChecklist checklist) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Delete checklist?"),
+            content: Text(
+              "This will remove \"${checklist.title}\" and its tasks.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(ctx).colorScheme.error,
+                ),
+                child: const Text("Delete"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+
+    setState(() => _checklistBusy[checklist.id] = true);
+    try {
+      await _checklistRepo.deleteChecklist(
+        eventId: widget.event.id,
+        checklistId: checklist.id,
+      );
+      final next = _checklists.where((c) => c.id != checklist.id).toList();
+      await _saveChecklistSnapshot(next);
+      if (!mounted) return;
+      setState(() => _checklistBusy.remove(checklist.id));
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        await _queueChecklistOp(
+          ChecklistPendingOp(
+            type: "delete_checklist",
+            payload: {"checklist_id": checklist.id},
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (!mounted) return;
+        setState(() => _checklistBusy.remove(checklist.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Delete queued. We'll sync when online."),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        setState(() => _checklistBusy.remove(checklist.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to delete: $e")),
+        );
+      }
+    }
+  }
+
+  Future<void> _reorderChecklists(int oldIndex, int newIndex) async {
+    if (oldIndex == newIndex) return;
+    final before = [..._checklists];
+    final reordered = [..._checklists];
+    final item = reordered.removeAt(oldIndex);
+    if (newIndex > oldIndex) newIndex -= 1;
+    reordered.insert(newIndex, item);
+    final resequenced = _withChecklistPositions(reordered);
+    if (!mounted) return;
+    setState(() => _checklists = resequenced);
+    try {
+      await _checklistRepo.reorderChecklist(
+        eventId: widget.event.id,
+        checklistId: item.id,
+        position: newIndex + 1,
+      );
+      await _checklistStorage.saveCache(widget.event.id, resequenced);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _checklists = before);
+      await _checklistStorage.saveCache(widget.event.id, before);
+      if (_isNetworkError(e)) {
+        await _queueChecklistOp(
+          ChecklistPendingOp(
+            type: "reorder_checklist",
+            payload: {
+              "checklist_id": item.id,
+              "position": newIndex + 1,
+            },
+            createdAt: DateTime.now(),
+          ),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Couldn't reorder right now. Saved to retry when online.",
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to reorder: $e")),
+        );
+      }
+    }
+  }
+
+  Future<void> _promptChecklistRename(EventChecklist checklist) async {
+    final controller = TextEditingController(text: checklist.title);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Rename checklist"),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: "Title",
+            errorText: _checklistFieldErrors[checklist.id],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.isNotEmpty) {
+      await _updateChecklistTitle(checklist, result);
+    }
+  }
+
+  Future<void> _createChecklistItem(
+    EventChecklist checklist,
+    _ChecklistItemFormValue value,
+  ) async {
+    final title = value.title.trim();
+    if (title.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Task title can't be blank.")),
+      );
+      return;
+    }
+    setState(() {
+      _newItemBusy[checklist.id] = true;
+    });
+    final dueAt = value.dueAt;
+    final assignee = value.assigneeId;
+    try {
+      final created = await _checklistRepo.createItem(
+        eventId: widget.event.id,
+        checklistId: checklist.id,
+        title: title,
+        dueAt: dueAt,
+        assigneeId: assignee,
+      );
+      final items = _withItemPositions([...checklist.items, created]);
+      final updated = checklist.copyWith(
+        items: items,
+        progress: _recalculateProgress(checklist, items),
+      );
+      final next = _checklists
+          .map((c) => c.id == checklist.id ? updated : c)
+          .toList();
+      await _saveChecklistSnapshot(next);
+    } on ChecklistApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        await _queueChecklistOp(
+          ChecklistPendingOp(
+            type: "create_item",
+            payload: {
+              "checklist_id": checklist.id,
+              "title": title,
+              if (dueAt != null) "due_at": dueAt.toIso8601String(),
+              if (assignee != null) "assignee_id": assignee,
+            },
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Task queued. We'll sync when online."),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to add task: $e")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _newItemBusy.remove(checklist.id));
+      }
+    }
+  }
+
+  Future<void> _toggleChecklistItem(
+    EventChecklist checklist,
+    EventChecklistItem item,
+  ) async {
+    final nextCompleted = !item.completed;
+    final updatedItems = checklist.items
+        .map((i) => i.id == item.id ? i.copyWith(completed: nextCompleted) : i)
+        .toList();
+    final updated = checklist.copyWith(
+      items: updatedItems,
+      progress: _recalculateProgress(checklist, updatedItems),
+    );
+    final before = [..._checklists];
+    await _saveChecklistSnapshot(
+      _checklists
+          .map((c) => c.id == checklist.id ? updated : c)
+          .toList(),
+    );
+    try {
+      await _checklistRepo.toggleItem(
+        eventId: widget.event.id,
+        checklistId: checklist.id,
+        itemId: item.id,
+      );
+    } catch (e) {
+      await _saveChecklistSnapshot(before);
+      if (_isNetworkError(e)) {
+        await _queueChecklistOp(
+          ChecklistPendingOp(
+            type: "toggle_item",
+            payload: {
+              "checklist_id": checklist.id,
+              "item_id": item.id,
+            },
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Toggle queued. Changes sync when online."),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to toggle: $e")),
+        );
+      }
+    }
+  }
+
+  Future<void> _reorderChecklistItems(
+    EventChecklist checklist,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    if (oldIndex == newIndex) return;
+    final reordered = _sortedItems(checklist.items);
+    final moved = reordered.removeAt(oldIndex);
+    if (newIndex > oldIndex) newIndex -= 1;
+    reordered.insert(newIndex, moved);
+    final resequenced = _withItemPositions(reordered);
+    final updated = checklist.copyWith(
+      items: resequenced,
+      progress: _recalculateProgress(checklist, resequenced),
+    );
+    final before = [..._checklists];
+    await _saveChecklistSnapshot(
+      _checklists
+          .map((c) => c.id == checklist.id ? updated : c)
+          .toList(),
+    );
+    try {
+      await _checklistRepo.reorderItem(
+        eventId: widget.event.id,
+        checklistId: checklist.id,
+        itemId: moved.id,
+        position: newIndex + 1,
+      );
+    } catch (e) {
+      await _saveChecklistSnapshot(before);
+      if (_isNetworkError(e)) {
+        await _queueChecklistOp(
+          ChecklistPendingOp(
+            type: "reorder_item",
+            payload: {
+              "checklist_id": checklist.id,
+              "item_id": moved.id,
+              "position": newIndex + 1,
+            },
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text("Reorder saved. We'll sync when you're back online."),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to reorder items: $e")),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteChecklistItem(
+    EventChecklist checklist,
+    EventChecklistItem item,
+  ) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Remove task?"),
+            content: const Text("This action cannot be undone."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(ctx).colorScheme.error,
+                ),
+                child: const Text("Delete"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+
+    setState(() => _itemBusy[item.id] = true);
+    final remaining = checklist.items.where((i) => i.id != item.id).toList();
+    final nextChecklist = checklist.copyWith(
+      items: remaining,
+      progress: _recalculateProgress(checklist, remaining),
+    );
+    final nextList = _checklists
+        .map((c) => c.id == checklist.id ? nextChecklist : c)
+        .toList();
+    await _saveChecklistSnapshot(nextList);
+    try {
+      await _checklistRepo.deleteItem(
+        eventId: widget.event.id,
+        checklistId: checklist.id,
+        itemId: item.id,
+      );
+      if (!mounted) return;
+      setState(() => _itemBusy.remove(item.id));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _itemBusy.remove(item.id));
+      await _fetchChecklists(showSpinner: false);
+      if (_isNetworkError(e)) {
+        await _queueChecklistOp(
+          ChecklistPendingOp(
+            type: "delete_item",
+            payload: {
+              "checklist_id": checklist.id,
+              "item_id": item.id,
+            },
+            createdAt: DateTime.now(),
+          ),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Delete queued until connection is restored."),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to delete task: $e")),
+        );
+      }
+    }
+  }
+
+  List<_AssigneeOption> _assigneeOptionsFor(Event event) {
+    final parts = event.participations ?? const [];
+    return parts
+        .where((p) => p.user != null)
+        .map(
+          (p) {
+            final user = p.user!;
+            final parts = [
+              user.firstName?.trim(),
+              user.lastName?.trim(),
+            ].whereType<String>().where((value) => value.isNotEmpty).toList();
+            final label = parts.isNotEmpty
+                ? parts.join(" ")
+                : (user.username?.isNotEmpty == true
+                    ? "@${user.username}"
+                    : user.email);
+            return _AssigneeOption(
+              id: user.id,
+              label: label,
+              avatarUrl: user.avatarUrl,
+            );
+          },
+        )
+        .toList();
+  }
+
+  Future<void> _openItemForm(
+    Event event,
+    EventChecklist checklist, {
+    EventChecklistItem? initial,
+  }) async {
+    final result = await showModalBottomSheet<_ChecklistItemFormValue>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _ChecklistItemFormSheet(
+        initial: initial,
+        assignees: _assigneeOptionsFor(event),
+        title: initial == null ? "New task" : "Edit task",
+      ),
+    );
+    if (result == null) return;
+    if (initial == null) {
+      await _createChecklistItem(checklist, result);
+    } else {
+      await _updateChecklistItem(checklist, initial, result);
+    }
+  }
+
+  Future<void> _updateChecklistItem(
+    EventChecklist checklist,
+    EventChecklistItem item,
+    _ChecklistItemFormValue value,
+  ) async {
+    setState(() => _itemBusy[item.id] = true);
+    try {
+      final updatedItem = await _checklistRepo.updateItem(
+        eventId: widget.event.id,
+        checklistId: checklist.id,
+        itemId: item.id,
+        title: value.title.isNotEmpty ? value.title : null,
+        dueAt: value.dueAt,
+        clearDueAt: value.clearDueAt,
+        assigneeId: value.assigneeId,
+        clearAssignee: value.clearAssignee,
+      );
+      final updatedItems = _sortedItems(
+        checklist.items
+            .map((i) => i.id == item.id ? updatedItem : i)
+            .toList(),
+      );
+      final updatedChecklist = checklist.copyWith(
+        items: updatedItems,
+        progress: _recalculateProgress(checklist, updatedItems),
+      );
+      await _saveChecklistSnapshot(
+        _checklists
+            .map((c) => c.id == checklist.id ? updatedChecklist : c)
+            .toList(),
+      );
+    } on ChecklistApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        await _queueChecklistOp(
+          ChecklistPendingOp(
+            type: "update_item",
+            payload: {
+              "checklist_id": checklist.id,
+              "item_id": item.id,
+              if (value.title.isNotEmpty) "title": value.title,
+              if (value.dueAt != null) "due_at": value.dueAt!.toIso8601String(),
+              if (value.assigneeId != null) "assignee_id": value.assigneeId,
+              "clear_due_at": value.clearDueAt,
+              "clear_assignee": value.clearAssignee,
+            },
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Edit queued. We'll sync when online."),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to update task: $e")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _itemBusy.remove(item.id));
+    }
   }
 
   Future<String?> _ensureGoogleApiKey() async {
@@ -1094,7 +2171,6 @@ class _EventScreenState extends State<EventScreen>
       });
     }).catchError((error) {
       if (!mounted) return;
-      debugPrint("Failed to load segments: $error");
       setState(() => _subEventsLoading = false);
     });
   }
@@ -1398,7 +2474,7 @@ class _EventScreenState extends State<EventScreen>
           children: [
             CircleAvatar(
               radius: 28,
-              backgroundColor: cs.primary.withOpacity(0.18),
+              backgroundColor: cs.primary.withValues(alpha: 0.18),
               backgroundImage: hostAvatar != null && hostAvatar.isNotEmpty
                   ? NetworkImage(hostAvatar)
                   : null,
@@ -1482,7 +2558,7 @@ class _EventScreenState extends State<EventScreen>
             child: Divider(
               height: 1,
               thickness: 1,
-              color: cs.outline.withOpacity(0.18),
+              color: cs.outline.withValues(alpha: 0.18),
             ),
           ),
         );
@@ -1532,6 +2608,19 @@ class _EventScreenState extends State<EventScreen>
           segments: subEvents,
           isHost: isHost,
           isLoading: showSegmentsLoader,
+        ),
+      );
+    }
+
+    final showChecklists = isHost || _checklists.isNotEmpty || _checklistsLoading;
+    if (showChecklists) {
+      children.add(const SizedBox(height: 20));
+      children.add(
+        _buildChecklistsCard(
+          context: context,
+          event: event,
+          cs: cs,
+          canEdit: isHost && !_checklistsReadOnly,
         ),
       );
     }
@@ -1667,6 +2756,351 @@ class _EventScreenState extends State<EventScreen>
     );
   }
 
+  Widget _buildChecklistsCard({
+    required BuildContext context,
+    required Event event,
+    required ColorScheme cs,
+    required bool canEdit,
+  }) {
+    final assignees = _assigneeOptionsFor(event);
+    final sorted = [..._checklists]..sort((a, b) => a.position.compareTo(b.position));
+
+    Widget buildItemContent(EventChecklist checklist, int checklistIndex) {
+      final sortedItems = checklist.sortedItems;
+
+      Widget itemRow(EventChecklistItem item, int itemIndex) {
+        final chips = <Widget>[];
+        if (item.dueAt != null) {
+          chips.add(
+            _InfoBadge(
+              icon: Icons.event,
+              label: DateFormat("MMM d").format(item.dueAt!),
+              color: cs.primary,
+            ),
+          );
+        }
+        if (item.assignee != null) {
+          chips.add(
+            _InfoBadge(
+              icon: Icons.person,
+              label: item.assignee!.name,
+              color: cs.secondary,
+            ),
+          );
+        }
+        final content = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (canEdit)
+              ReorderableDragStartListener(
+                index: itemIndex,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8, top: 6),
+                  child: Icon(Icons.drag_handle, color: cs.onSurfaceVariant),
+                ),
+              ),
+            Checkbox(
+              value: item.completed,
+              onChanged: canEdit
+                  ? (_) => _toggleChecklistItem(checklist, item)
+                  : null,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          decoration: item.completed
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
+                          color: item.completed
+                              ? cs.onSurfaceVariant
+                              : cs.onSurface,
+                        ),
+                  ),
+                  if (chips.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: chips,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (canEdit)
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == "edit") {
+                    _openItemForm(event, checklist, initial: item);
+                  } else if (value == "delete") {
+                    _deleteChecklistItem(checklist, item);
+                  }
+                },
+                itemBuilder: (ctx) => const [
+                  PopupMenuItem(value: "edit", child: Text("Edit")),
+                  PopupMenuItem(value: "delete", child: Text("Delete")),
+                ],
+              ),
+          ],
+        );
+        return Container(
+          key: ValueKey("item_${item.id}"),
+          margin: const EdgeInsets.only(bottom: 8),
+          child: content,
+        );
+      }
+
+      final itemsWidget = sortedItems.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                "No tasks yet. Start by adding one below.",
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+              ),
+            )
+          : (canEdit
+              ? ReorderableListView.builder(
+                  shrinkWrap: true,
+                  primary: false,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  itemCount: sortedItems.length,
+                  onReorder: (oldIdx, newIdx) =>
+                      _reorderChecklistItems(checklist, oldIdx, newIdx),
+                  itemBuilder: (ctx, idx) =>
+                      itemRow(sortedItems[idx], idx),
+                )
+              : Column(
+                  children: [
+                    for (var i = 0; i < sortedItems.length; i++)
+                      itemRow(sortedItems[i], i),
+                  ],
+                ));
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: LinearGradient(
+            colors: [
+              cs.primary.withValues(alpha: 0.08),
+              cs.surfaceVariant.withValues(alpha: 0.3),
+            ],
+          ),
+          border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                if (canEdit)
+                  ReorderableDragStartListener(
+                    index: checklistIndex,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child:
+                          Icon(Icons.drag_handle, color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                Expanded(
+                  child: Text(
+                    checklist.title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                if (canEdit)
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == "rename") {
+                        _promptChecklistRename(checklist);
+                      } else if (value == "delete") {
+                        _deleteChecklist(checklist);
+                      }
+                    },
+                    itemBuilder: (ctx) => const [
+                      PopupMenuItem(value: "rename", child: Text("Rename")),
+                      PopupMenuItem(value: "delete", child: Text("Delete")),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: checklist.completionPercent,
+              backgroundColor: cs.surface.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "${checklist.completedCount}/${checklist.totalCount} complete",
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            itemsWidget,
+            if (canEdit)
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.tonalIcon(
+                  onPressed: _newItemBusy[checklist.id] == true
+                      ? null
+                      : () => _openItemForm(event, checklist),
+                  icon: _newItemBusy[checklist.id] == true
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add),
+                  label: const Text("Add task"),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final header = Row(
+      children: [
+        const Icon(Icons.check_circle_outline),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            "Checklists",
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ),
+        if (canEdit && !_checklistsLoading)
+          Text(
+            "Hold to drag",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+          ),
+      ],
+    );
+
+    Widget body;
+    if (_checklistsLoading) {
+      body = const Padding(
+        padding: EdgeInsets.all(20),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    } else if (_checklistsError != null && sorted.isEmpty) {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Unable to load checklists.",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 8),
+          FilledButton.tonal(
+            onPressed: _fetchChecklists,
+            child: const Text("Retry"),
+          ),
+        ],
+      );
+    } else if (sorted.isEmpty) {
+      body = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Text(
+          "No checklists yet.",
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+        ),
+      );
+    } else if (canEdit) {
+      body = ReorderableListView.builder(
+        shrinkWrap: true,
+        primary: false,
+        physics: const NeverScrollableScrollPhysics(),
+        buildDefaultDragHandles: false,
+        itemCount: sorted.length,
+        onReorder: _reorderChecklists,
+        itemBuilder: (ctx, index) => Container(
+          key: ValueKey("checklist_${sorted[index].id}"),
+          child: buildItemContent(sorted[index], index),
+        ),
+      );
+    } else {
+      body = Column(
+        children: [
+          for (var i = 0; i < sorted.length; i++)
+            buildItemContent(sorted[i], i),
+        ],
+      );
+    }
+
+    final newChecklistForm = canEdit
+        ? Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _newChecklistController,
+                    decoration: InputDecoration(
+                      labelText: "New checklist",
+                      errorText: _newChecklistError,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(
+                  onPressed: _creatingChecklist ? null : _submitNewChecklist,
+                  child: _creatingChecklist
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text("Add"),
+                ),
+              ],
+            ),
+          )
+        : const SizedBox.shrink();
+
+    return _SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          header,
+          const SizedBox(height: 12),
+          body,
+          newChecklistForm,
+          if (_checklistsReadOnly)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                "Offline mode: checklists are read-only.",
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildGuestsTab({
     required BuildContext context,
     required Event event,
@@ -1727,7 +3161,7 @@ class _EventScreenState extends State<EventScreen>
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: cs.primary.withOpacity(0.15),
+            backgroundColor: cs.primary.withValues(alpha: 0.15),
             backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                 ? NetworkImage(avatarUrl)
                 : null,
@@ -1768,7 +3202,7 @@ class _EventScreenState extends State<EventScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: badgeColor.withOpacity(0.15),
+              color: badgeColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -2124,9 +3558,9 @@ class _EventScreenState extends State<EventScreen>
     final disabled = _rsvpLoading;
 
     final background = isSelected
-        ? option.color.withOpacity(0.18)
-        : cs.surface.withOpacity(0.35);
-    final borderColor = isSelected ? option.color : cs.outline.withOpacity(0.4);
+        ? option.color.withValues(alpha: 0.18)
+        : cs.surface.withValues(alpha: 0.35);
+    final borderColor = isSelected ? option.color : cs.outline.withValues(alpha: 0.4);
     final iconColor = isSelected ? option.color : cs.onSurfaceVariant;
     final textColor = isSelected ? option.color : cs.onSurface;
 
@@ -2146,7 +3580,7 @@ class _EventScreenState extends State<EventScreen>
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: option.color.withOpacity(0.25),
+                      color: option.color.withValues(alpha: 0.25),
                       offset: const Offset(0, 10),
                       blurRadius: 20,
                       spreadRadius: 1,
@@ -2285,7 +3719,7 @@ class _EventScreenState extends State<EventScreen>
                     pinned: true,
                     leading: CircleAvatar(
                       radius: 22,
-                      backgroundColor: Colors.black.withOpacity(0.6),
+                      backgroundColor: Colors.black.withValues(alpha: 0.6),
                       child: IconButton(
                         icon: const Icon(Icons.arrow_back, color: Colors.white),
                         onPressed: () => Navigator.of(context).pop(),
@@ -2297,7 +3731,7 @@ class _EventScreenState extends State<EventScreen>
                           padding: const EdgeInsets.only(right: 8.0),
                           child: CircleAvatar(
                             radius: 22,
-                            backgroundColor: Colors.black.withOpacity(0.6),
+                            backgroundColor: Colors.black.withValues(alpha: 0.6),
                             child: IconButton(
                               icon: const Icon(Icons.edit, color: Colors.white),
                               onPressed: () {

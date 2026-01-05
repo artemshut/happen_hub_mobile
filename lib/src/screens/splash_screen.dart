@@ -118,7 +118,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       Text(
                         "Discover what's happening around you",
                         style: TextStyle(
-                          color: cs.onPrimary.withOpacity(0.8),
+                          color: cs.onPrimary.withValues(alpha: 0.8),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),

@@ -60,7 +60,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                cs.primary.withOpacity(0.85),
+                cs.primary.withValues(alpha: 0.85),
                 const Color(0xFF14121C),
               ],
               begin: Alignment.topLeft,
@@ -201,7 +201,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon, color: color),
@@ -245,7 +245,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen>
         decoration: BoxDecoration(
           color: cs.surfaceVariant,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: cs.outline.withOpacity(0.4)),
+          border: Border.all(color: cs.outline.withValues(alpha: 0.4)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -299,9 +299,9 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen>
             : "Ends ${DateFormat("EEE, d MMM · h:mm a").format(e.endTime!)}")
         : null;
 
-    final borderColor = cs.outline.withOpacity(isPast ? 0.2 : 0.4);
+    final borderColor = cs.outline.withValues(alpha: isPast ? 0.2 : 0.4);
     final background = isPast
-        ? cs.surfaceVariant.withOpacity(0.6)
+        ? cs.surfaceVariant.withValues(alpha: 0.6)
         : cs.surfaceVariant;
 
     return Padding(
@@ -396,7 +396,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen>
                                   endLabel,
                                   style:
                                       theme.textTheme.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant.withOpacity(0.8),
+                                    color: cs.onSurfaceVariant.withValues(alpha: 0.8),
                                   ),
                                 ),
                             ],
@@ -483,7 +483,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen>
     final accent = isOngoing
         ? cs.secondary
         : isPast
-            ? cs.outline.withOpacity(0.6)
+            ? cs.outline.withValues(alpha: 0.6)
             : cs.primary;
 
     return Container(
@@ -492,7 +492,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen>
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withOpacity(0.7), width: 1.1),
+        border: Border.all(color: accent.withValues(alpha: 0.7), width: 1.1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -527,9 +527,9 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -561,12 +561,12 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen>
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: foreground != null
-            ? color.withOpacity(0.25)
+            ? color.withValues(alpha: 0.25)
             : cs.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: (foreground != null ? color : cs.outline)
-              .withOpacity(0.5),
+              .withValues(alpha: 0.5),
         ),
       ),
       child: Row(
@@ -593,9 +593,9 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.18),
+        color: color.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.45)),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

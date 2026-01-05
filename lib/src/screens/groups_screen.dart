@@ -55,7 +55,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                cs.primary.withOpacity(0.85),
+                cs.primary.withValues(alpha: 0.85),
                 const Color(0xFF14121C),
               ],
               begin: Alignment.topLeft,
@@ -132,7 +132,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen>
                     "Create a group and invite friends to make planning easier.",
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant.withOpacity(0.8),
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.8),
                         ),
                   ),
                 ],
@@ -213,7 +213,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen>
                         color: Theme.of(context)
                             .colorScheme
                             .onSurfaceVariant
-                            .withOpacity(0.9),
+                            .withValues(alpha: 0.9),
                       ),
                 ),
               ],
@@ -283,7 +283,7 @@ class _SectionHeader extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(icon, color: color),
@@ -378,7 +378,7 @@ class _SummaryPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surfaceVariant,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outline.withOpacity(0.45)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.45)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,7 +441,7 @@ class _GroupCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 26,
-                backgroundColor: cs.primary.withOpacity(0.18),
+                backgroundColor: cs.primary.withValues(alpha: 0.18),
                 child: Text(
                   primary,
                   style: TextStyle(
@@ -472,10 +472,10 @@ class _GroupCard extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: cs.secondary.withOpacity(0.18),
+                              color: cs.secondary.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                  color: cs.secondary.withOpacity(0.45)),
+                                  color: cs.secondary.withValues(alpha: 0.45)),
                             ),
                             child: Text(
                               "Owner",
@@ -586,7 +586,7 @@ class _AvatarCircle extends StatelessWidget {
     return CircleAvatar(
       radius: 18,
       backgroundColor:
-          Theme.of(context).colorScheme.primary.withOpacity(0.18),
+          Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
       child: Text(
         initial,
         style: TextStyle(

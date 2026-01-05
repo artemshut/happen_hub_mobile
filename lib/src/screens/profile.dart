@@ -207,7 +207,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: cs.surfaceVariant.withOpacity(0.4),
+          color: cs.surfaceVariant.withValues(alpha: 0.4),
         ),
         child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
@@ -274,7 +274,7 @@ class _SectionHeading extends StatelessWidget {
           height: 38,
           width: 38,
           decoration: BoxDecoration(
-            color: cs.primary.withOpacity(0.15),
+            color: cs.primary.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: cs.primary),
@@ -363,11 +363,11 @@ class _MissionCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: statusColor.withOpacity(0.18)),
+        border: Border.all(color: statusColor.withValues(alpha: 0.18)),
         gradient: LinearGradient(
           colors: [
-            cs.surfaceVariant.withOpacity(0.35),
-            cs.surface.withOpacity(0.5),
+            cs.surfaceVariant.withValues(alpha: 0.35),
+            cs.surface.withValues(alpha: 0.5),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -382,7 +382,7 @@ class _MissionCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
+                  color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
@@ -432,7 +432,7 @@ class _MissionCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: ratio,
               minHeight: 6,
-              backgroundColor: cs.surfaceVariant.withOpacity(0.35),
+              backgroundColor: cs.surfaceVariant.withValues(alpha: 0.35),
               valueColor: AlwaysStoppedAnimation<Color>(statusColor),
             ),
           ),
@@ -562,7 +562,7 @@ class _ThemeToggleCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: cs.surfaceVariant,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outline.withOpacity(0.4)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -616,8 +616,8 @@ class _XpCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outline.withOpacity(0.2)),
-        color: cs.surfaceVariant.withOpacity(0.6),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+        color: cs.surfaceVariant.withValues(alpha: 0.6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

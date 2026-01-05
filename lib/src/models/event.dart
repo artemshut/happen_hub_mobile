@@ -2,6 +2,7 @@ import 'user.dart';
 import 'event_category.dart';
 import 'comment.dart';
 import 'event_participation.dart';
+import 'event_checklist.dart';
 
 class Event {
   final String id;
@@ -20,6 +21,7 @@ class Event {
   String? visibility; // "public" or "friends" or "private"
   final List<EventFile>? files;
   final List<EventSubEvent> subEvents;
+  final List<EventChecklist> checklists;
 
   Event({
     required this.id,
@@ -38,6 +40,7 @@ class Event {
     this.coverImageUrl,
     this.files,
     this.subEvents = const [],
+    this.checklists = const [],
   });
 
   factory Event.fromJson(
@@ -117,6 +120,17 @@ class Event {
       }
     }
 
+    final rawChecklists = attrs['checklists'] as List<dynamic>?;
+    final checklists = rawChecklists == null
+        ? <EventChecklist>[]
+        : rawChecklists
+            .map(
+              (entry) => EventChecklist.fromJson(
+                (entry as Map).cast<String, dynamic>(),
+              ),
+            )
+            .toList();
+
     final descRaw = attrs['description'];
     final description = (descRaw is String)
         ? descRaw
@@ -154,6 +168,7 @@ class Event {
       latitude: attrs['latitude'] != null ? (attrs['latitude'] as num).toDouble() : null,
       longitude: attrs['longitude'] != null ? (attrs['longitude'] as num).toDouble() : null,
       subEvents: subEvents,
+      checklists: checklists,
     );
   }
 }

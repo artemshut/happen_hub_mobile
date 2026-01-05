@@ -70,7 +70,7 @@ class _PlansScreenState extends State<PlansScreen> {
             label: const Text('Manage subscription on web'),
             style: OutlinedButton.styleFrom(
               foregroundColor: cs.primary,
-              side: BorderSide(color: cs.primary.withOpacity(0.4)),
+              side: BorderSide(color: cs.primary.withValues(alpha: 0.4)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -98,13 +98,13 @@ class _PlanCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: plan.highlighted
-            ? cs.primary.withOpacity(0.08)
+            ? cs.primary.withValues(alpha: 0.08)
             : Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: plan.highlighted
-              ? cs.primary.withOpacity(0.35)
-              : cs.outline.withOpacity(0.25),
+              ? cs.primary.withValues(alpha: 0.35)
+              : cs.outline.withValues(alpha: 0.25),
         ),
       ),
       child: Column(
@@ -133,9 +133,9 @@ class _PlanCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: cs.primary.withOpacity(0.14),
+                    color: cs.primary.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: cs.primary.withOpacity(0.35)),
+                    border: Border.all(color: cs.primary.withValues(alpha: 0.35)),
                   ),
                   child: Text(
                     'Current',
@@ -184,7 +184,7 @@ class _PlanCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.check_circle,
-                          size: 18, color: cs.primary.withOpacity(0.9)),
+                          size: 18, color: cs.primary.withValues(alpha: 0.9)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
